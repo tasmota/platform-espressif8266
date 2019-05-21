@@ -41,12 +41,12 @@
   "packages": {
     "toolchain-xtensa": {
       "type": "toolchain",
-      "version": "~1.40802.0"
+      "version": "<3"
     },
     "framework-arduinoespressif8266": {
       "type": "framework",
       "optional": true,
-      "version": "~2.20501.0"
+      "version": "~2.20502.0"
     },
     "framework-esp8266-rtos-sdk": {
       "type": "framework",
