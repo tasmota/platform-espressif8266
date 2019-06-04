@@ -136,6 +136,7 @@ env.Replace(
     CC="xtensa-lx106-elf-gcc",
     CXX="xtensa-lx106-elf-g++",
     GDB="xtensa-lx106-elf-gdb",
+    OBJCOPY="xtensa-lx106-elf-objcopy",
     RANLIB="xtensa-lx106-elf-ranlib",
     SIZETOOL="xtensa-lx106-elf-size",
 
@@ -162,9 +163,6 @@ env.Replace(
 
     PROGSUFFIX=".elf"
 )
-
-if int(ARGUMENTS.get("PIOVERBOSE", 0)):
-    env.Prepend(UPLOADERFLAGS=["-vv"])
 
 # Allow user to override via pre:script
 if env.get("PROGNAME", "program") == "program":
@@ -193,27 +191,6 @@ env.Append(
             emitter=__fetch_spiffs_size,
             source_factory=env.Dir,
             suffix=".bin"
-        ),
-
-        # Default for ESP8266 RTOS SDK and Native SDK common configuration
-        # Frameworks may override "ElfToBin" builder
-        ElfToBin=Builder(
-            action=env.VerboseAction(" ".join([
-                'esptool',
-                "-eo", "$SOURCES",
-                "-bo", "${TARGETS[0]}",
-                "-bm", "$BOARD_FLASH_MODE",
-                "-bf", "${__get_board_f_flash(__env__)}",
-                "-bz", "${__get_flash_size(__env__)}",
-                "-bs", ".text",
-                "-bs", ".data",
-                "-bs", ".rodata",
-                "-bc", "-ec",
-                "-eo", "$SOURCES",
-                "-es", ".irom0.text", "${TARGETS[1]}",
-                "-ec", "-v"
-            ]), "Building $TARGET"),
-            suffix=".bin"
         )
     )
 )
@@ -229,13 +206,8 @@ if "nobuild" in COMMAND_LINE_TARGETS:
     if set(["uploadfs", "uploadfsota"]) & set(COMMAND_LINE_TARGETS):
         fetch_spiffs_size(env)
         target_firm = join("$BUILD_DIR", "spiffs.bin")
-    elif env.subst("$PIOFRAMEWORK") in ("arduino", "simba"):
-        target_firm = join("$BUILD_DIR", "${PROGNAME}.bin")
     else:
-        target_firm = [
-            join("$BUILD_DIR", "eagle.flash.bin"),
-            join("$BUILD_DIR", "eagle.irom0text.bin")
-        ]
+        target_firm = join("$BUILD_DIR", "${PROGNAME}.bin")
 else:
     if set(["buildfs", "uploadfs", "uploadfsota"]) & set(COMMAND_LINE_TARGETS):
         target_firm = env.DataToBin(
@@ -243,14 +215,8 @@ else:
         AlwaysBuild(target_firm)
         AlwaysBuild(env.Alias("buildfs", target_firm))
     else:
-        if env.subst("$PIOFRAMEWORK") in ("arduino", "simba"):
-            target_firm = env.ElfToBin(
-                join("$BUILD_DIR", "${PROGNAME}"), target_elf)
-        else:
-            target_firm = env.ElfToBin([
-                join("$BUILD_DIR", "eagle.flash.bin"),
-                join("$BUILD_DIR", "eagle.irom0text.bin")
-            ], target_elf)
+        target_firm = env.ElfToBin(
+            join("$BUILD_DIR", "${PROGNAME}"), target_elf)
 
 AlwaysBuild(env.Alias("nobuild", target_firm))
 target_buildprog = env.Alias("buildprog", target_firm, target_firm)
@@ -322,7 +288,7 @@ elif upload_protocol == "esptool":
             "--baud", "$UPLOAD_SPEED",
             "write_flash"
         ],
-        UPLOADCMD='"$PYTHONEXE" "$UPLOADER" $UPLOADERFLAGS 0 $SOURCE'
+        UPLOADCMD='"$PYTHONEXE" "$UPLOADER" $UPLOADERFLAGS 0x0 $SOURCE'
     )
     for image in env.get("FLASH_EXTRA_IMAGES", []):
         env.Append(UPLOADERFLAGS=[image[0], env.subst(image[1])])
