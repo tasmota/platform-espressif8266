@@ -241,13 +241,14 @@ else:
             sys.stderr.write("Filesystem %s is not supported!\n" % filesystem)
             env.Exit(1)
         target_firm = env.DataToBin(
-            join("$BUILD_DIR", "${ESP8266_FS_IMAGE_NAME}"), "$PROJECTDATA_DIR")
+            join("$BUILD_DIR", "${ESP8266_FS_IMAGE_NAME}"), "$PROJECT_DATA_DIR")
         AlwaysBuild(target_firm)
     else:
         target_firm = env.ElfToBin(
             join("$BUILD_DIR", "${PROGNAME}"), target_elf)
+        env.Depends(target_firm, "checkprogsize")
 
-env.AddPlatformTarget("buildfs", target_firm, None, "Build Filesystem Image")
+env.AddPlatformTarget("buildfs", target_firm, target_firm, "Build Filesystem Image")
 AlwaysBuild(env.Alias("nobuild", target_firm))
 target_buildprog = env.Alias("buildprog", target_firm, target_firm)
 
