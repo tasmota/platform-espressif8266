@@ -23,6 +23,7 @@
       "package": "framework-arduinoespressif8266",
       "script": "builder/frameworks/arduino.py"
     },
+  },
   "packages": {
     "toolchain-xtensa": {
       "type": "toolchain",
