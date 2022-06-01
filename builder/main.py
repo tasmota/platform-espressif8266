@@ -14,6 +14,7 @@
 
 # pylint: disable=redefined-outer-name
 
+import functools
 import re
 import sys
 from os.path import join
@@ -21,7 +22,6 @@ from os.path import join
 
 from SCons.Script import (COMMAND_LINE_TARGETS, AlwaysBuild,
                           Builder, Default, DefaultEnvironment)
-from platformio import util
 
 #
 # Helpers
@@ -47,7 +47,7 @@ def _parse_size(value):
     return value
 
 
-@util.memoized()
+@functools.lru_cache(maxsize=None)
 def _parse_ld_sizes(ldscript_path):
     assert ldscript_path
     result = {}
@@ -150,13 +150,13 @@ env.Replace(
     __get_flash_size=_get_flash_size,
     __get_board_f_flash=_get_board_f_flash,
 
-    AR="xtensa-lx106-elf-gcc-ar",
+    AR="xtensa-lx106-elf-ar",
     AS="xtensa-lx106-elf-as",
     CC="xtensa-lx106-elf-gcc",
     CXX="xtensa-lx106-elf-g++",
     GDB="xtensa-lx106-elf-gdb",
     OBJCOPY="xtensa-lx106-elf-objcopy",
-    RANLIB="xtensa-lx106-elf-gcc-ranlib",
+    RANLIB="xtensa-lx106-elf-ranlib",
     SIZETOOL="xtensa-lx106-elf-size",
 
     ARFLAGS=["rc"],
@@ -241,6 +241,7 @@ else:
             env.Exit(1)
         target_firm = env.DataToBin(
             join("$BUILD_DIR", "${ESP8266_FS_IMAGE_NAME}"), "$PROJECT_DATA_DIR")
+        env.NoCache(target_firm)
         AlwaysBuild(target_firm)
     else:
         target_firm = env.ElfToBin(
