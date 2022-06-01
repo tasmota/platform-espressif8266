@@ -11,13 +11,13 @@
     "106Micro"
   ],
   "engines": {
-    "platformio": "^5"
+    "platformio": ">=6.0.2"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/platformio/platform-espressif8266.git"
   },
-  "version": "3.2.0",
+  "version": "2.7.4.9",
   "frameworks": {
     "arduino": {
       "package": "framework-arduinoespressif8266",
@@ -46,14 +46,12 @@
     "toolchain-xtensa": {
       "type": "toolchain",
       "owner": "platformio",
-      "version": "~2.100300.0",
-      "optionalVersions": ["~1.40802.0"]
+      "version": "~2.40802.0"
     },
     "framework-arduinoespressif8266": {
       "type": "framework",
-      "optional": true,
-      "owner": "platformio",
-      "version": "~3.30002.0"
+      "owner": "tasmota",
+      "version": "~2.7.4"
     },
     "framework-esp8266-rtos-sdk": {
       "type": "framework",
@@ -75,13 +73,14 @@
     },
     "tool-esptool": {
       "type": "uploader",
+      "optional": true,
       "owner": "platformio",
       "version": "<2"
     },
     "tool-esptoolpy": {
       "type": "uploader",
       "owner": "platformio",
-      "version": "~1.30000.0"
+      "version": "~1.30300.0"
     },
     "tool-mkspiffs": {
       "type": "uploader",
