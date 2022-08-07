@@ -1,4 +1,4 @@
-# Espressif 8266: development platform for [PlatformIO](http://platformio.org)
+# Tasmota Espressif 8266: development platform for [PlatformIO](http://platformio.org)
 
 [![Build Status](https://github.com/platformio/platform-espressif8266/workflows/Examples/badge.svg)](https://github.com/platformio/platform-espressif8266/actions)
 
@@ -16,17 +16,7 @@ Espressif Systems is a privately held fabless semiconductor company. They provid
 
 ```ini
 [env:stable]
-platform = espressif8266
-board = ...
-...
-```
-
-## Development version
-
-```ini
-[env:development]
-platform = https://github.com/platformio/platform-espressif8266.git
-board = ...
+platform = https://github.com/tasmota/platform-espressif8266/releases/download/v2.7.4.9/platform-espressif8266-2.7.4.9.zip
 ...
 ```
 
