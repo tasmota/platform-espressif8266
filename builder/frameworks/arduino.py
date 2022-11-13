@@ -59,7 +59,6 @@ def install_python_deps():
     }
 
     installed_packages = _get_installed_pip_packages()
-    #installed_packages = []
     packages_to_install = []
     for package, spec in deps.items():
         if package not in installed_packages:
