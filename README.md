@@ -16,7 +16,7 @@ Espressif Systems is a privately held fabless semiconductor company. They provid
 
 ```ini
 [env:stable]
-platform = https://github.com/tasmota/platform-espressif8266/releases/download/v2.7.4.9/platform-espressif8266-2.7.4.9.zip
+platform = https://github.com/tasmota/platform-espressif8266/releases/download/v2.7.4/platform-espressif8266-2.7.4.zip
 ...
 ```
 
