@@ -55,6 +55,7 @@ def install_python_deps():
         return result
 
     deps = {
+        "wheel": ">=0.35.1",
         "zopfli": ">=0.2.1"
     }
 
