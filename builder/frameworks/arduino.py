@@ -42,7 +42,14 @@ def install_python_deps():
         result = {}
         packages = {}
         pip_output = subprocess.check_output(
-            [env.subst("$PYTHONEXE"), "-m", "pip", "list", "--format=json"]
+            [
+                env.subst("$PYTHONEXE"),
+                "-m",
+                "pip",
+                "list",
+                "--format=json",
+                "--disable-pip-version-check",
+            ]
         )
         try:
             packages = json.loads(pip_output)
@@ -73,8 +80,13 @@ def install_python_deps():
         env.Execute(
             env.VerboseAction(
                 (
-                    '"$PYTHONEXE" -m pip install -U --force-reinstall '
-                    + " ".join(['"%s%s"' % (p, deps[p]) for p in packages_to_install])
+                    '"$PYTHONEXE" -m pip install -U '
+                    + " ".join(
+                        [
+                            '"%s%s"' % (p, deps[p])
+                            for p in packages_to_install
+                        ]
+                    )
                 ),
                 "Installing Python dependencies",
             )
