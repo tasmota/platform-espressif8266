@@ -22,24 +22,6 @@
     "arduino": {
       "package": "framework-arduinoespressif8266",
       "script": "builder/frameworks/arduino.py"
-    },
-    "simba": {
-      "package": "framework-simba",
-      "script": "builder/frameworks/simba.py"
-    },
-    "esp8266-rtos-sdk": {
-      "package": "framework-esp8266-rtos-sdk",
-      "script": "builder/frameworks/esp8266-rtos-sdk.py",
-      "description": "ESP8266 SDK based on FreeRTOS, a truly free professional grade RTOS for microcontrollers",
-      "homepage": "https://github.com/espressif/ESP8266_RTOS_SDK",
-      "title": "ESP8266 RTOS SDK"
-    },
-    "esp8266-nonos-sdk": {
-      "package": "framework-esp8266-nonos-sdk",
-      "script": "builder/frameworks/esp8266-nonos-sdk.py",
-      "description": "The non-OS SDK provides a set of application programming interfaces (APIs) for core ESP8266 functionalities such as data reception/transmission over Wi-Fi, TCP/IP stack functions, hardware interface functions and basic system management functions",
-      "homepage": "https://github.com/espressif/ESP8266_NONOS_SDK",
-      "title": "ESP8266 Non-OS SDK"
     }
   },
   "packages": {
@@ -53,24 +35,6 @@
       "owner": "tasmota",
       "version": "https://github.com/tasmota/Arduino/releases/download/3.0.2/esp8266-3.0.2.zip"
     },
-    "framework-esp8266-rtos-sdk": {
-      "type": "framework",
-      "optional": true,
-      "owner": "platformio",
-      "version": ">=1.5.0-beta"
-    },
-    "framework-esp8266-nonos-sdk": {
-      "type": "framework",
-      "optional": true,
-      "owner": "platformio",
-      "version": ">=2.1.0"
-    },
-    "framework-simba": {
-      "type": "framework",
-      "optional": true,
-      "owner": "platformio",
-      "version": ">=7.0.0"
-    },
     "tool-esptool": {
       "type": "uploader",
       "optional": true,
@@ -80,7 +44,7 @@
     "tool-esptoolpy": {
       "type": "uploader",
       "owner": "tasmota",
-      "version": "https://github.com/tasmota/esptool/releases/download/v3.2.1/esptool-3.2.1.zip"
+      "version": "https://github.com/tasmota/esptool/releases/download/v4.5.1/esptool-4.5.1.zip"
     },
     "tool-mkspiffs": {
       "type": "uploader",
