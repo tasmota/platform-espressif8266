@@ -11,7 +11,7 @@
     "106Micro"
   ],
   "engines": {
-    "platformio": ">=6.0.2"
+    "platformio": ">=6.1.6"
   },
   "repository": {
     "type": "git",
