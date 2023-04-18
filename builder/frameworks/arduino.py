@@ -63,7 +63,8 @@ def install_python_deps():
 
     deps = {
         "wheel": ">=0.35.1",
-        "zopfli": ">=0.2.2"
+        "zopfli": ">=0.2.2",
+        "esp-idf-size": ">=0.3.0"
     }
 
     installed_packages = _get_installed_pip_packages()
