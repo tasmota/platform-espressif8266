@@ -23,14 +23,21 @@ http://arduino.cc/en/Reference/HomePage
 """
 
 import subprocess
+import importlib.util
 import json
 import semantic_version
+import sys
 from os.path import join
 
 from SCons.Script import COMMAND_LINE_TARGETS, DefaultEnvironment, SConscript
 from platformio.package.version import pepver_to_semver
 
 env = DefaultEnvironment()
+DEPS = {
+    "wheel": ">=0.35.1",
+    "zopfli": ">=0.2.2"
+}
+
 
 if "nobuild" not in COMMAND_LINE_TARGETS:
     SConscript(
@@ -61,14 +68,9 @@ def install_python_deps():
 
         return result
 
-    deps = {
-        "wheel": ">=0.35.1",
-        "zopfli": ">=0.2.2"
-    }
-
     installed_packages = _get_installed_pip_packages()
     packages_to_install = []
-    for package, spec in deps.items():
+    for package, spec in DEPS.items():
         if package not in installed_packages:
             packages_to_install.append(package)
         else:
@@ -83,7 +85,7 @@ def install_python_deps():
                     '"$PYTHONEXE" -m pip install -U '
                     + " ".join(
                         [
-                            '"%s%s"' % (p, deps[p])
+                            '"%s%s"' % (p, DEPS[p])
                             for p in packages_to_install
                         ]
                     )
@@ -92,4 +94,26 @@ def install_python_deps():
             )
         )
 
-install_python_deps()
+
+if sys.prefix != sys.base_prefix:
+    # This means we are in a venv and can assume pip to be available and being able to install packages
+    install_python_deps()
+else:
+    # Very likely this is a system python installation, there is no guarantee that pip is available
+    # and even if it is, it's unlikely that installing packages with it is the correct thing to do.
+    # Instead we check if our dependencies are already available through importlib and print an error
+    # message telling the user to use the system package manager to install (or run the build in a
+    # venv) them in case they are not
+    missing_deps = []
+    for dep in DEPS.keys():
+        if not importlib.util.find_spec(dep):
+            missing_deps.append(dep)
+    if len(missing_deps) > 0:
+        print(f"""
+MISSING BUILD DEPENDENCIES!
+Please ensure the following dependencies are available in this python environment:
+{missing_deps}
+
+Alternatively run this build inside a python venv. Dependencies can then be auto-installed.
+        """)
+        sys.exit(1)
