@@ -63,7 +63,8 @@ def install_python_deps():
 
     deps = {
         "wheel": ">=0.35.1",
-        "zopfli": ">=0.2.2"
+        "zopfli": ">=0.2.2",
+        "intelhex": ">=2.3.0" # newest esptool.py needs
     }
 
     installed_packages = _get_installed_pip_packages()
