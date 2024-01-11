@@ -3,15 +3,15 @@ name: Create zip file with recursive source clone for release
 on:
   push:
     tags:
-      - v*
+      - 20*
 
 jobs:
   release_zips:
     name: Create release zip file
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
-      - name: Create a recursive clone source and stripped zip
-        uses: Jason2866/github-actions/release_zips@release_idf
+      - name: Create a recursive clone source zip
+        uses: jason2866/github-actions/release_zips@release_idf
         env:
-            RELEASE_PROJECT_NAME: ESP-IDF
+            RELEASE_PROJECT_NAME: platform-espressif8266
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
