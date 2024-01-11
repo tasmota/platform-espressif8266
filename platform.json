@@ -11,13 +11,13 @@
     "106Micro"
   ],
   "engines": {
-    "platformio": ">=6.1.6"
+    "platformio": ">=6.1.11"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/platformio/platform-espressif8266.git"
+    "url": "https://github.com/tasmota/platform-espressif8266.git"
   },
-  "version": "2023.04.00",
+  "version": "2024.01.00",
   "frameworks": {
     "arduino": {
       "package": "framework-arduinoespressif8266",
@@ -38,7 +38,7 @@
     "tool-esptoolpy": {
       "type": "uploader",
       "owner": "tasmota",
-      "version": "https://github.com/tasmota/esptool/releases/download/v4.5.1/esptool-4.5.1.zip"
+      "version": "https://github.com/tasmota/esptool/releases/download/v4.7.0/esptool-4.7.0.zip"
     },
     "tool-mkspiffs": {
       "type": "uploader",
