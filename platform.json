@@ -33,7 +33,7 @@
     "framework-arduinoespressif8266": {
       "type": "framework",
       "owner": "tasmota",
-      "version": "~2.7.4"
+      "version": "https://github.com/tasmota/Arduino/releases/download/2.7.5/esp8266-2.7.5.zip"
     },
     "tool-esptoolpy": {
       "type": "uploader",
