@@ -17,7 +17,7 @@
     "type": "git",
     "url": "https://github.com/tasmota/platform-espressif8266.git"
   },
-  "version": "2024.01.00",
+  "version": "2024.01.01",
   "frameworks": {
     "arduino": {
       "package": "framework-arduinoespressif8266",
@@ -33,7 +33,7 @@
     "framework-arduinoespressif8266": {
       "type": "framework",
       "owner": "tasmota",
-      "version": "https://github.com/tasmota/Arduino/releases/download/2.7.5/esp8266-2.7.5.zip"
+      "version": "https://github.com/tasmota/Arduino/releases/download/2.7.6/Arduino-2.7.6.zip"
     },
     "tool-esptoolpy": {
       "type": "uploader",
