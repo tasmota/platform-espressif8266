@@ -144,7 +144,7 @@ def get_esptoolpy_reset_flags(resetmethod):
 env = DefaultEnvironment()
 platform = env.PioPlatform()
 board = env.BoardConfig()
-filesystem = board.get("build.filesystem", "spiffs")
+filesystem = board.get("build.filesystem", "littlefs")
 
 env.Replace(
     __get_flash_size=_get_flash_size,
@@ -386,14 +386,6 @@ env.AddPlatformTarget(
     ],
     "Erase Flash",
 )
-
-#
-# Information about obsolete method of specifying linker scripts
-#
-
-if any("-Wl,-T" in f for f in env.get("LINKFLAGS", [])):
-    print("Warning! '-Wl,-T' option for specifying linker scripts is deprecated. "
-          "Please use 'board_build.ldscript' option in your 'platformio.ini' file.")
 
 #
 # Default targets
