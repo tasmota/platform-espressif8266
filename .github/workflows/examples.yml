@@ -18,7 +18,6 @@ jobs:
           - "examples/arduino-asyncudp"
           - "examples/arduino-blink"
           - "examples/arduino-webserver"
-          - "examples/arduino-wifiscan"
           - "examples/tasmota"
     runs-on: ${{ matrix.os }}
     steps:
