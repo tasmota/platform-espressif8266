@@ -1,6 +1,6 @@
 # Tasmota Espressif 8266: development platform for [PlatformIO](http://platformio.org)
 
-[![Build Status](https://github.com/platformio/platform-espressif8266/workflows/Examples/badge.svg)](https://github.com/platformio/platform-espressif8266/actions)
+[![Build Status](https://github.com/platformio/platform-espressif8266/workflows/Examples/badge.svg)](https://github.com/platformio/platform-espressif8266/actions)[![GitHub Releases](https://img.shields.io/github/downloads/tasmota/platform-espressif8266/total?label=downloads)](https://github.com/tasmota/platform-espressif8266/releases/latest)
 
 Espressif Systems is a privately held fabless semiconductor company. They provide wireless communications and Wi-Fi chips which are widely used in mobile devices and the Internet of Things applications.
 
