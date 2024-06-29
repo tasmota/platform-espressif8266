@@ -37,7 +37,7 @@ jobs:
       - name: git clone Tasmota and add to examples
         if: matrix.example == 'examples/tasmota'
         run: |
-          git clone https://github.com/arendst/Tasmota.git examples/tasmota
+          git clone -b nmi_fix --recursive --depth 1 --shallow-submodule https://github.com/jason2866/Tasmota.git examples/tasmota
           cp examples/tasmota_platformio_override.ini examples/tasmota/platformio_override.ini
       - name: Build examples
         run: |
