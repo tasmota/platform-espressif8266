@@ -35,7 +35,7 @@ if IS_WINDOWS:
 python_exe = get_pythonexe_path()
 pm = ToolPackageManager()
 
-class Espressif32Platform(PlatformBase):
+class Espressif8266Platform(PlatformBase):
     def configure_default_packages(self, variables, targets):
         if not variables.get("board"):
             return super().configure_default_packages(variables, targets)
