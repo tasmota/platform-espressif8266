@@ -63,5 +63,6 @@
       "owner": "pioarduino",
       "package-version": "1.200.0",
       "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/mkspiffs-1.2.0.zip"
+    }
   }
-}
+}  
