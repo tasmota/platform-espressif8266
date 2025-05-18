@@ -117,8 +117,6 @@ class Espressif8266Platform(PlatformBase):
             self.packages["framework-arduinoespressif8266"]["optional"] = False
             install_tool("toolchain-xtensa")
 
-        # install_tool("tool-scons")
-
         CHECK_PACKAGES = [
             "tool-cppcheck",
             "tool-clangtidy",
