@@ -54,7 +54,7 @@
       "type": "uploader",
       "optional": true,
       "owner": "pioarduino",
-      "package-version": "2.0.3",
+      "package-version": "1.203.210628",
       "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/mklittlefs-2.3.0.zip"
     },
     "tool-mkspiffs": {
