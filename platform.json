@@ -64,6 +64,27 @@
       "package-version": "1.200.0",
       "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/mkspiffs-1.2.0.zip"
     },
+    "tool-cppcheck": {
+      "type": "tool",
+      "optional": true,
+      "owner": "pioarduino",
+      "package-version": "2.11.0+230717",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/cppcheck-v2.11.0-230717.zip"
+    },
+    "tool-clangtidy": {
+      "type": "tool",
+      "optional": true,
+      "owner": "pioarduino",
+      "package-version": "18.1.1",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/clangtidy-v18.1.1.zip"
+    },
+    "tool-pvs-studio": {
+      "type": "tool",
+      "optional": true,
+      "owner": "pioarduino",
+      "package-version": "7.36.91321",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/pvs-studio-v7.36.91321.zip"
+    },
     "tool-scons": {
       "type": "tool",
       "optional": true,
