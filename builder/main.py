@@ -14,14 +14,14 @@
 
 # pylint: disable=redefined-outer-name
 
-import functools
 import re
 import sys
 from os.path import join
 
+from SCons.Script import (
+    ARGUMENTS, COMMAND_LINE_TARGETS, AlwaysBuild, Builder, Default,
+    DefaultEnvironment)
 
-from SCons.Script import (COMMAND_LINE_TARGETS, AlwaysBuild,
-                          Builder, Default, DefaultEnvironment)
 
 #
 # Helpers
@@ -151,6 +151,7 @@ def get_esptoolpy_reset_flags(resetmethod):
 
 env = DefaultEnvironment()
 platform = env.PioPlatform()
+config = env.GetProjectConfig()
 board = env.BoardConfig()
 filesystem = board.get("build.filesystem", "littlefs")
 
