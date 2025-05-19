@@ -1,11 +1,8 @@
 # Tasmota Espressif 8266: development platform for [PlatformIO](http://platformio.org)
 
-[![Build Status](https://github.com/platformio/platform-espressif8266/workflows/Examples/badge.svg)](https://github.com/platformio/platform-espressif8266/actions)[![GitHub Releases](https://img.shields.io/github/downloads/tasmota/platform-espressif8266/total?label=downloads)](https://github.com/tasmota/platform-espressif8266/releases/latest)
+[![Build Status](https://github.com/tasmota/platform-espressif8266/workflows/Examples/badge.svg)](https://github.com/tasmota/platform-espressif8266/actions)[![GitHub Releases](https://img.shields.io/github/downloads/tasmota/platform-espressif8266/total?label=downloads)](https://github.com/tasmota/platform-espressif8266/releases/latest)
 
-Espressif Systems is a privately held fabless semiconductor company. They provide wireless communications and Wi-Fi chips which are widely used in mobile devices and the Internet of Things applications.
-
-* [Home](http://platformio.org/platforms/espressif8266) (home page in PlatformIO Platform Registry)
-* [Documentation](http://docs.platformio.org/page/platforms/espressif8266.html) (advanced usage, packages, boards, frameworks, etc.)
+Espressif Systems is a privately held fabless semiconductor company. They provide wireless communications and WiFi chips which are widely used in mobile devices and the Internet of Things applications.
 
 # Usage
 
@@ -16,7 +13,7 @@ Espressif Systems is a privately held fabless semiconductor company. They provid
 
 ```ini
 [env:stable]
-platform = https://github.com/tasmota/platform-espressif8266/releases/download/2024.09.00/platform-espressif8266.zip
+platform = https://github.com/tasmota/platform-espressif8266/releases/download/2025.05.00/platform-espressif8266.zip
 ...
 ```
 
