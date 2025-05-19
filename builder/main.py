@@ -228,14 +228,23 @@ env.Replace(BUILD_FLAGS=[
 env.Append(
     BUILDERS=dict(
         DataToBin=Builder(
-            action=env.VerboseAction(" ".join([
-                '"$MKFSTOOL"',
-                "-c", "$SOURCES",
-                "-p", "$FS_PAGE",
-                "-b", "$FS_BLOCK",
-                "-s", "${FS_END - FS_START}",
-                "$TARGET"
-            ]), "Building file system image from '$SOURCES' directory to $TARGET"),
+            action=env.VerboseAction(
+                " ".join(
+                    ['"$MKFSTOOL"', "-c", "$SOURCES", "-s", "${FS_END - FS_START}"]
+                    + (
+                        [
+                            "-p",
+                            "$FS_PAGE",
+                            "-b",
+                            "$FS_BLOCK",
+                        ]
+                        if filesystem in ("littlefs", "spiffs")
+                        else []
+                    )
+                    + ["$TARGET"]
+                ),
+                "Building FS image from '$SOURCES' directory to $TARGET",
+            ),
             emitter=__fetch_fs_size,
             source_factory=env.Dir,
             suffix=".bin"
