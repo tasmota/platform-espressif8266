@@ -27,6 +27,14 @@ from SCons.Script import (COMMAND_LINE_TARGETS, AlwaysBuild,
 # Helpers
 #
 
+def BeforeUpload(target, source, env):
+    upload_options = {}
+    if "BOARD" in env:
+        upload_options = env.BoardConfig().get("upload", {})
+
+    if not env.subst("$UPLOAD_PORT"):
+        env.AutodetectUploadPort()
+
 
 def _get_board_f_flash(env):
     frequency = env.subst("$BOARD_F_FLASH")
@@ -341,8 +349,7 @@ elif upload_protocol == "esptool":
     )
 
     upload_actions = [
-        env.VerboseAction(env.AutodetectUploadPort,
-                          "Looking for upload port..."),
+        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")
     ]
 
@@ -366,7 +373,7 @@ env.AddPlatformTarget(
     "erase_upload",
     target_firm,
     [
-        env.VerboseAction(env.AutodetectUploadPort, "Looking for serial port..."),
+        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.VerboseAction("$ERASECMD", "Erasing..."),
         env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")
     ],
@@ -381,7 +388,7 @@ env.AddPlatformTarget(
     "erase",
     None,
     [
-        env.VerboseAction(env.AutodetectUploadPort, "Looking for serial port..."),
+        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.VerboseAction("$ERASECMD", "Erasing...")
     ],
     "Erase Flash",
