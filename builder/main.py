@@ -14,6 +14,7 @@
 
 # pylint: disable=redefined-outer-name
 
+import functools
 import re
 import sys
 from os.path import join
