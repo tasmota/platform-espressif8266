@@ -12,8 +12,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-14]
-        python-version: ["3.11", "3.12"]
+        os: [ubuntu-latest, windows-latest, macos-15]
+        python-version: ["3.11", "3.12", "3.13"]
         example:
           - "examples/arduino-asyncudp"
           - "examples/arduino-blink"
@@ -30,9 +30,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
           pip install wheel
-          pip install -U https://github.com/platformio/platformio/archive/develop.zip
+          pip install -U https://github.com/pioarduino/platformio-core/archive/pio_github.zip
           pio pkg install --global --platform symlink://.
       - name: git clone Tasmota and add to examples
         if: matrix.example == 'examples/tasmota'
