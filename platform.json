@@ -6,18 +6,18 @@
   "license": "Apache-2.0",
   "keywords": [
     "dev-platform",
-    "Wi-Fi",
+    "WiFi",
     "Xtensa",
-    "106Micro"
+    "esp8266"
   ],
   "engines": {
-    "platformio": ">=6.1.14"
+    "platformio": ">=6.1.18"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/tasmota/platform-espressif8266.git"
   },
-  "version": "2024.09.00",
+  "version": "2025.05.00",
   "frameworks": {
     "arduino": {
       "package": "framework-arduinoespressif8266",
@@ -27,24 +27,70 @@
   "packages": {
     "toolchain-xtensa": {
       "type": "toolchain",
-      "owner": "platformio",
-      "version": "~2.40802.0"
+      "optional": true,
+      "owner": "pioarduino",
+      "package-version": "2.40802.200502",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/xtensa-4.8.2.zip"
     },
     "framework-arduinoespressif8266": {
       "type": "framework",
+      "optional": true,
       "owner": "tasmota",
       "version": "https://github.com/tasmota/Arduino/releases/download/2.7.8/esp8266-2.7.8.zip"
     },
     "tool-esptoolpy": {
       "type": "uploader",
+      "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/tasmota/esptool/releases/download/v4.7.6/esptool.zip"
+      "version": "https://github.com/pioarduino/esptool/releases/download/v4.8.11/esptool.zip"
+    },
+    "tl-install": {
+      "type": "tool",
+      "optional": false,
+      "owner": "pioarduino",
+      "version": "https://github.com/pioarduino/esp_install/releases/download/v5.0.0/esp_install-v5.0.0.zip"
     },
     "tool-mklittlefs": {
       "type": "uploader",
       "optional": true,
-      "owner": "platformio",
-      "version": "~1.203.0"
+      "owner": "pioarduino",
+      "package-version": "1.203.210628",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/mklittlefs-2.3.0.zip"
+    },
+    "tool-mkspiffs": {
+      "type": "uploader",
+      "optional": true,
+      "owner": "pioarduino",
+      "package-version": "1.200.0",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/mkspiffs-1.2.0.zip"
+    },
+    "tool-cppcheck": {
+      "type": "tool",
+      "optional": true,
+      "owner": "pioarduino",
+      "package-version": "2.11.0+230717",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/cppcheck-v2.11.0-230717.zip"
+    },
+    "tool-clangtidy": {
+      "type": "tool",
+      "optional": true,
+      "owner": "pioarduino",
+      "package-version": "18.1.1",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/clangtidy-v18.1.1.zip"
+    },
+    "tool-pvs-studio": {
+      "type": "tool",
+      "optional": true,
+      "owner": "pioarduino",
+      "package-version": "7.36.91321",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/pvs-studio-v7.36.91321.zip"
+    },
+    "tool-scons": {
+      "type": "tool",
+      "optional": true,
+      "owner": "pioarduino",
+      "package-version": "4.40801.0",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/scons-4.8.1.zip"
     }
   }
 }

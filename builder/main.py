@@ -19,13 +19,22 @@ import re
 import sys
 from os.path import join
 
+from SCons.Script import (
+    ARGUMENTS, COMMAND_LINE_TARGETS, AlwaysBuild, Builder, Default,
+    DefaultEnvironment)
 
-from SCons.Script import (COMMAND_LINE_TARGETS, AlwaysBuild,
-                          Builder, Default, DefaultEnvironment)
 
 #
 # Helpers
 #
+
+def BeforeUpload(target, source, env):
+    upload_options = {}
+    if "BOARD" in env:
+        upload_options = env.BoardConfig().get("upload", {})
+
+    if not env.subst("$UPLOAD_PORT"):
+        env.AutodetectUploadPort()
 
 
 def _get_board_f_flash(env):
@@ -143,6 +152,7 @@ def get_esptoolpy_reset_flags(resetmethod):
 
 env = DefaultEnvironment()
 platform = env.PioPlatform()
+config = env.GetProjectConfig()
 board = env.BoardConfig()
 filesystem = board.get("build.filesystem", "littlefs")
 
@@ -189,6 +199,21 @@ env.Replace(
     PROGSUFFIX=".elf"
 )
 
+# Check if lib_archive is set in platformio.ini and set it to False
+# if not found. This makes weak defs in framework and libs possible.
+def check_lib_archive_exists():
+    for section in config.sections():
+        if "lib_archive" in config.options(section):
+            #print(f"lib_archive in [{section}] found with value: {config.get(section, 'lib_archive')}")
+            return True
+    #print("lib_archive was not found in platformio.ini")
+    return False
+
+if not check_lib_archive_exists():
+    env_section = "env:" + env["PIOENV"]
+    config.set(env_section, "lib_archive", "False")
+    #print(f"lib_archive is set to False in [{env_section}]")
+
 # Allow user to override via pre:script
 if env.get("PROGNAME", "program") == "program":
     env.Replace(PROGNAME="firmware")
@@ -205,14 +230,23 @@ env.Replace(BUILD_FLAGS=[
 env.Append(
     BUILDERS=dict(
         DataToBin=Builder(
-            action=env.VerboseAction(" ".join([
-                '"$MKFSTOOL"',
-                "-c", "$SOURCES",
-                "-p", "$FS_PAGE",
-                "-b", "$FS_BLOCK",
-                "-s", "${FS_END - FS_START}",
-                "$TARGET"
-            ]), "Building file system image from '$SOURCES' directory to $TARGET"),
+            action=env.VerboseAction(
+                " ".join(
+                    ['"$MKFSTOOL"', "-c", "$SOURCES", "-s", "${FS_END - FS_START}"]
+                    + (
+                        [
+                            "-p",
+                            "$FS_PAGE",
+                            "-b",
+                            "$FS_BLOCK",
+                        ]
+                        if filesystem in ("littlefs", "spiffs")
+                        else []
+                    )
+                    + ["$TARGET"]
+                ),
+                "Building FS image from '$SOURCES' directory to $TARGET",
+            ),
             emitter=__fetch_fs_size,
             source_factory=env.Dir,
             suffix=".bin"
@@ -341,8 +375,7 @@ elif upload_protocol == "esptool":
     )
 
     upload_actions = [
-        env.VerboseAction(env.AutodetectUploadPort,
-                          "Looking for upload port..."),
+        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")
     ]
 
@@ -366,7 +399,7 @@ env.AddPlatformTarget(
     "erase_upload",
     target_firm,
     [
-        env.VerboseAction(env.AutodetectUploadPort, "Looking for serial port..."),
+        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.VerboseAction("$ERASECMD", "Erasing..."),
         env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")
     ],
@@ -381,7 +414,7 @@ env.AddPlatformTarget(
     "erase",
     None,
     [
-        env.VerboseAction(env.AutodetectUploadPort, "Looking for serial port..."),
+        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
         env.VerboseAction("$ERASECMD", "Erasing...")
     ],
     "Erase Flash",
