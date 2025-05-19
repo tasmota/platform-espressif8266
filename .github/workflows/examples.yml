@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install wheel
-          pip install -U https://github.com/pioarduino/platformio-core/archive/pio_github.zip
+          pip install -U https://github.com/Jason2866/platformio-core/archive/pioarduino.zip
           pio pkg install --global --platform symlink://.
       - name: git clone Tasmota and add to examples
         if: matrix.example == 'examples/tasmota'
