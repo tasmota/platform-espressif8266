@@ -113,9 +113,14 @@ class Espressif8266Platform(PlatformBase):
         if bool(os.path.exists(os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tl-install", "tools", "idf_tools.py"))):
             self.packages["tl-install"]["optional"] = True
 
-        if "arduino" in frameworks:
-            self.packages["framework-arduinoespressif8266"]["optional"] = False
-            install_tool("toolchain-xtensa")
+        # tool-scons needs to be installed but can be set inactive
+        if bool(os.path.exists(os.path.join(ProjectConfig.get_instance().get("platformio", "packages_dir"), "tool-scons", "scons.py"))):
+            self.packages["tool-scons"]["optional"] = True
+        else:
+            install_tool("tool-scons")
+
+        self.packages["framework-arduinoespressif8266"]["optional"] = False
+        install_tool("toolchain-xtensa")
 
         CHECK_PACKAGES = [
             "tool-cppcheck",
