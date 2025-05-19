@@ -138,8 +138,6 @@ class Espressif8266Platform(PlatformBase):
             filesystem = variables.get("board_build.filesystem", "littlefs")
             if filesystem == "littlefs":
                 install_tool("tool-mklittlefs")
-            elif filesystem == "spiffs":
-                install_tool("tool-mkspiffs")
 
         return super().configure_default_packages(variables, targets)
 
