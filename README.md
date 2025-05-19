@@ -2,7 +2,7 @@
 
 [![Build Status](https://github.com/tasmota/platform-espressif8266/workflows/Examples/badge.svg)](https://github.com/tasmota/platform-espressif8266/actions)[![GitHub Releases](https://img.shields.io/github/downloads/tasmota/platform-espressif8266/total?label=downloads)](https://github.com/tasmota/platform-espressif8266/releases/latest)
 
-Espressif Systems is a privately held fabless semiconductor company. They provide wireless communications and WiFi chips which are widely used in mobile devices and the Internet of Things applications.
+Espressif Systems is a privately held, fabless semiconductor company renowned for delivering cost-effective wireless communication microcontrollers. Their innovative solutions are widely adopted in mobile devices and Internet of Things (IoT) applications around the globe.
 
 # Usage
 
