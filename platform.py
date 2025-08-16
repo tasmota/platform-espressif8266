@@ -606,16 +606,13 @@ class Espressif8266Platform(PlatformBase):
         if not result:
             return result
         if id_:
-            return self._add_upload_protocols(result) if result else result
+            return self._add_upload_protocols(result)
         else:
             for key, value in result.items():
-                if value:
-                    result[key] = self._add_upload_protocols(value)
-            return result
+                result[key] = self._add_upload_protocols(result[key])
+        return result
 
     def _add_upload_protocols(self, board):
-        if not board:
-            return board
         if not board.get("upload.protocols", []):
             board.manifest['upload']['protocols'] = ["esptool", "espota"]
         if not board.get("upload.protocol", ""):
