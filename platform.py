@@ -500,15 +500,18 @@ class Espressif8266Platform(PlatformBase):
             "debug" in targets
         )
 
-    def _configure_mcu_toolchains(self) -> None:
+    def _configure_mcu_toolchains(self, variables: Dict, targets: List[str]) -> None:
         """Install toolchain with optimized installation."""
 
-        # Installtoolchain
+        board_config = self.board_config(variables.get("board"))
+        mcu_config = board_config.get("debug", {})
+
         self.install_tool(toolchain)
 
         # Debug tools when needed
         if self._needs_debug_tools(variables, targets):
-            for debug_tool in mcu_config["debug_tools"]:
+            debug_tools = mcu_config.get("debug_tools", {})
+            for debug_tool in debug_tools:
                 self.install_tool(debug_tool)
 
     def _configure_installer(self) -> None:
