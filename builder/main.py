@@ -18,11 +18,22 @@ import functools
 import re
 import sys
 from os.path import join
+from penv_setup import setup_python_environment
 
 from SCons.Script import (
     ARGUMENTS, COMMAND_LINE_TARGETS, AlwaysBuild, Builder, Default,
     DefaultEnvironment)
 
+# Initialize environment and configuration
+env = DefaultEnvironment()
+platform = env.PioPlatform()
+config = env.GetProjectConfig()
+board = env.BoardConfig()
+filesystem = board.get("build.filesystem", "littlefs")
+platformio_dir = config.get("platformio", "core_dir")
+
+# Setup Python virtual environment and get executable paths
+PYTHON_EXE, esptool_binary_path = setup_python_environment(env, platform, platformio_dir)
 
 #
 # Helpers
@@ -150,11 +161,6 @@ def get_esptoolpy_reset_flags(resetmethod):
 
 ########################################################
 
-env = DefaultEnvironment()
-platform = env.PioPlatform()
-config = env.GetProjectConfig()
-board = env.BoardConfig()
-filesystem = board.get("build.filesystem", "littlefs")
 
 env.Replace(
     __get_flash_size=_get_flash_size,
