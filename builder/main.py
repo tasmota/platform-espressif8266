@@ -23,7 +23,10 @@ from SCons.Script import (
     ARGUMENTS, COMMAND_LINE_TARGETS, AlwaysBuild, Builder, Default,
     DefaultEnvironment)
 
+# Initialize environment and configuration
+env = DefaultEnvironment()
 platform = env.PioPlatform()
+projectconfig = env.GetProjectConfig()
 platformio_dir = projectconfig.get("platformio", "core_dir")
 
 # Setup Python virtual environment and get executable paths
