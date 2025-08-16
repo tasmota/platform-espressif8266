@@ -573,7 +573,7 @@ class Espressif8266Platform(PlatformBase):
         filesystem = variables.get("board_build.filesystem", "littlefs")
 
         if any(target in targets for target in ["buildfs", "uploadfs", "downloadfs"]):
-            self._install_filesystem_tool(filesystem)
+            self._install_filesystem_tool(filesystem, for_download="downloadfs" in targets)
 
     def configure_default_packages(self, variables: Dict, targets: List[str]) -> Any:
         """Main configuration method with optimized package management."""
