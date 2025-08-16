@@ -602,21 +602,22 @@ class Espressif8266Platform(PlatformBase):
         return super().configure_default_packages(variables, targets)
 
     def get_boards(self, id_=None):
-        """Get board configuration with dynamic options."""
         result = super().get_boards(id_)
         if not result:
             return result
         if id_:
-            return self._add_dynamic_options(result)
+            return self._add_upload_protocols(result) if result else result
         else:
             for key, value in result.items():
-                result[key] = self._add_dynamic_options(result[key])
-        return result
+                if value:
+                    result[key] = self._add_upload_protocols(value)
+            return result
 
-    def _add_dynamic_options(self, board):
-        """Add dynamic board options for upload protocols and debug tools."""
-        # Upload protocols
+    def _add_upload_protocols(self, board):
+        if not board:
+            return board
         if not board.get("upload.protocols", []):
-            board.manifest["upload"]["protocols"] = ["esptool", "espota"]
+            board.manifest['upload']['protocols'] = ["esptool", "espota"]
         if not board.get("upload.protocol", ""):
-            board.manifest["upload"]["protocol"] = "esptool"
+            board.manifest['upload']['protocol'] = "esptool"
+        return board
