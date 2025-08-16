@@ -488,7 +488,6 @@ class Espressif8266Platform(PlatformBase):
 
         self.packages["framework-arduinoespressif8266"]["optional"] = False
 
-
     def _needs_debug_tools(self, variables: Dict, targets: List[str]) -> bool:
         """Check if debug tools are needed based on build configuration."""
         return bool(
@@ -535,11 +534,6 @@ class Espressif8266Platform(PlatformBase):
         """Install esptool package required for all builds."""
         self.install_tool("tool-esptoolpy")
 
-    def _install_common_idf_packages(self) -> None:
-        """Install common ESP-IDF packages required for all builds."""
-        for package in COMMON_IDF_PACKAGES:
-            self.install_tool(package)
-
     def _configure_check_tools(self, variables: Dict) -> None:
         """Configure static analysis and check tools based on configuration."""
         check_tools = variables.get("check_tool", [])
@@ -551,7 +545,6 @@ class Espressif8266Platform(PlatformBase):
             if any(tool in package for tool in check_tools):
                 self.install_tool(package)
 
-
     def _install_filesystem_tool(self, filesystem: str, for_download: bool = False) -> None:
         """Install filesystem-specific tools based on the filesystem type."""
         tool_mapping = {
@@ -562,14 +555,12 @@ class Espressif8266Platform(PlatformBase):
         handler = tool_mapping.get(filesystem, tool_mapping["default"])
         handler()
 
-
     def _configure_filesystem_tools(self, variables: Dict, targets: List[str]) -> None:
         """Configure filesystem tools based on build targets and filesystem type."""
         filesystem = variables.get("board_build.filesystem", "littlefs")
 
         if any(target in targets for target in ["buildfs", "uploadfs", "downloadfs"]):
             self._install_filesystem_tool(filesystem)
-
 
     def configure_default_packages(self, variables: Dict, targets: List[str]) -> Any:
         """Main configuration method with optimized package management."""
