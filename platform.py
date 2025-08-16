@@ -35,7 +35,7 @@ DEFAULT_DEBUG_SPEED = "5000"
 DEFAULT_APP_OFFSET = "0x10000"
 tl_install_name = "tool-esp_install"
 
-toolchain = 
+toolchain = "toolchain-xtensa"
 
 CHECK_PACKAGES = [
     "tool-cppcheck",
