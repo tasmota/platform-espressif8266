@@ -43,6 +43,10 @@ CHECK_PACKAGES = [
     "tool-pvs-studio"
 ]
 
+COMMON_IDF_PACKAGES = [
+    "tool-scons",
+]
+
 # System-specific configuration
 IS_WINDOWS = sys.platform.startswith("win")
 # Set Platformio env var to use windows_amd64 for all windows architectures
@@ -134,6 +138,7 @@ class Espressif8266Platform(PlatformBase):
         super().__init__(*args, **kwargs)
         self._packages_dir = None
         self._tools_cache = {}
+        self._mcu_config_cache = {}
 
     @property
     def packages_dir(self) -> str:
@@ -534,6 +539,11 @@ class Espressif8266Platform(PlatformBase):
         """Install esptool package required for all builds."""
         self.install_tool("tool-esptoolpy")
 
+    def _install_common_idf_packages(self) -> None:
+        """Install common ESP-IDF packages required for all builds."""
+        for package in COMMON_IDF_PACKAGES:
+            self.install_tool(package)
+
     def _configure_check_tools(self, variables: Dict) -> None:
         """Configure static analysis and check tools based on configuration."""
         check_tools = variables.get("check_tool", [])
@@ -575,6 +585,7 @@ class Espressif8266Platform(PlatformBase):
             # Configuration steps
             self._configure_installer()
             self._install_esptool_package()
+            self._install_common_idf_packages()
             self._configure_arduino_framework(frameworks)
             self._configure_mcu_toolchains()
             self._configure_filesystem_tools() 
