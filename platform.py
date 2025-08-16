@@ -590,8 +590,8 @@ class Espressif8266Platform(PlatformBase):
             self._install_esptool_package()
             self._install_common_idf_packages()
             self._configure_arduino_framework(frameworks)
-            self._configure_mcu_toolchains()
-            self._configure_filesystem_tools() 
+            self._configure_mcu_toolchains(variables, targets)
+            self._configure_filesystem_tools(variables, targets)
             self._configure_check_tools(variables)
 
             logger.info("Package configuration completed successfully")
