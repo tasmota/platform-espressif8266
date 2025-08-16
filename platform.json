@@ -41,8 +41,9 @@
     "tool-esptoolpy": {
       "type": "uploader",
       "optional": true,
-      "owner": "tasmota",
-      "version": "https://github.com/pioarduino/esptool/releases/download/v4.8.11/esptool.zip"
+      "owner": "pioarduino",
+      "package-version": "5.0.2",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/esptoolpy-v5.0.2.zip"
     },
     "tl-install": {
       "type": "tool",
