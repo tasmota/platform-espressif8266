@@ -18,6 +18,7 @@ import functools
 import re
 import sys
 from os.path import join
+from penv_setup import setup_python_environment
 
 from SCons.Script import (
     ARGUMENTS, COMMAND_LINE_TARGETS, AlwaysBuild, Builder, Default,
