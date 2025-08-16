@@ -43,7 +43,7 @@
       "optional": false,
       "owner": "pioarduino",
       "package-version": "5.0.2",
-      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/esptoolpy-v5.0.2.zip"
+      "version": "https://github.com/pioarduino/esptool/releases/download/v5.0.2/esptool.zip"
     },
     "tl-install": {
       "type": "tool",
