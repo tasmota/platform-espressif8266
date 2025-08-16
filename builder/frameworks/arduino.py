@@ -38,35 +38,55 @@ if "nobuild" not in COMMAND_LINE_TARGETS:
             "framework-arduinoespressif8266"), "tools", "platformio-build.py"))
 
 def install_python_deps():
-    def _get_installed_pip_packages():
+    def _get_installed_packages():
         result = {}
         packages = {}
-        pip_output = subprocess.check_output(
-            [
-                env.subst("$PYTHONEXE"),
-                "-m",
-                "pip",
-                "list",
-                "--format=json",
-                "--disable-pip-version-check",
-            ]
-        )
+        
+        # First try uv, fallback to pip if uv is not available
         try:
-            packages = json.loads(pip_output)
+            uv_output = subprocess.check_output(
+                [
+                    "uv",
+                    "pip",
+                    "list",
+                    "--format=json"
+                ]
+            )
+            packages = json.loads(uv_output)
+            use_uv = True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # Fallback to pip if uv is not available
+            try:
+                pip_output = subprocess.check_output(
+                    [
+                        env.subst("$PYTHONEXE"),
+                        "-m",
+                        "pip",
+                        "list",
+                        "--format=json",
+                        "--disable-pip-version-check",
+                    ]
+                )
+                packages = json.loads(pip_output)
+                use_uv = False
+            except:
+                print("Warning! Couldn't extract the list of installed Python packages.")
+                return {}, False
         except:
             print("Warning! Couldn't extract the list of installed Python packages.")
-            return {}
+            return {}, False
+            
         for p in packages:
             result[p["name"]] = pepver_to_semver(p["version"])
 
-        return result
+        return result, use_uv
 
     deps = {
         "wheel": ">=0.35.1",
         "zopfli": ">=0.2.2"
     }
 
-    installed_packages = _get_installed_pip_packages()
+    installed_packages, use_uv = _get_installed_packages()
     packages_to_install = []
     for package, spec in deps.items():
         if package not in installed_packages:
@@ -77,19 +97,37 @@ def install_python_deps():
                 packages_to_install.append(package)
 
     if packages_to_install:
-        env.Execute(
-            env.VerboseAction(
-                (
-                    '"$PYTHONEXE" -m pip install -U '
-                    + " ".join(
-                        [
-                            '"%s%s"' % (p, deps[p])
-                            for p in packages_to_install
-                        ]
-                    )
-                ),
-                "Installing Python dependencies",
+        if use_uv:
+            # Use uv for package installation
+            env.Execute(
+                env.VerboseAction(
+                    (
+                        'uv pip install '
+                        + " ".join(
+                            [
+                                '"%s%s"' % (p, deps[p])
+                                for p in packages_to_install
+                            ]
+                        )
+                    ),
+                    "Installing Python dependencies with uv",
+                )
             )
-        )
+        else:
+            # Fallback to pip
+            env.Execute(
+                env.VerboseAction(
+                    (
+                        '"$PYTHONEXE" -m pip install -U '
+                        + " ".join(
+                            [
+                                '"%s%s"' % (p, deps[p])
+                                for p in packages_to_install
+                            ]
+                        )
+                    ),
+                    "Installing Python dependencies with pip",
+                )
+            )
 
 install_python_deps()
