@@ -22,21 +22,10 @@ kinds of creative coding, interactive objects, spaces or physical experiences.
 http://arduino.cc/en/Reference/HomePage
 """
 
-import subprocess
-import json
-import semantic_version
 from os.path import join
-
 from SCons.Script import COMMAND_LINE_TARGETS, DefaultEnvironment, SConscript
-from platformio.package.version import pepver_to_semver
 
-# Initialize environment and configuration
 env = DefaultEnvironment()
-platform = env.PioPlatform()
-platformio_dir = projectconfig.get("platformio", "core_dir")
-
-# Setup Python virtual environment and get executable paths
-PYTHON_EXE, esptool_binary_path = setup_python_environment(env, platform, platformio_dir)
 
 if "nobuild" not in COMMAND_LINE_TARGETS:
     SConscript(
