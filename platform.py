@@ -126,7 +126,7 @@ def safe_copy_directory(src: str, dst: str) -> bool:
     return True
 
 
-class Espressif8266Platform(PlatformBase)::
+class Espressif8266Platform(PlatformBase):
     """ESP8266 platform implementation for PlatformIO with optimized toolchain management."""
 
     def __init__(self, *args, **kwargs):
