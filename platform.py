@@ -126,15 +126,14 @@ def safe_copy_directory(src: str, dst: str) -> bool:
     return True
 
 
-class Espressif32Platform(PlatformBase):
-    """ESP32 platform implementation for PlatformIO with optimized toolchain management."""
+class Espressif8266Platform(PlatformBase)::
+    """ESP8266 platform implementation for PlatformIO with optimized toolchain management."""
 
     def __init__(self, *args, **kwargs):
-        """Initialize the ESP32 platform with caching mechanisms."""
+        """Initialize the ESP8266 platform with caching mechanisms."""
         super().__init__(*args, **kwargs)
         self._packages_dir = None
         self._tools_cache = {}
-        self._mcu_config_cache = {}
 
     @property
     def packages_dir(self) -> str:
