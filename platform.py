@@ -486,7 +486,7 @@ class Espressif8266Platform(PlatformBase)::
         if "arduino" not in frameworks:
             return
 
-        self.packages["framework-arduinoespressif32"]["optional"] = False
+        self.packages["framework-arduinoespressif8266"]["optional"] = False
 
 
     def _needs_debug_tools(self, variables: Dict, targets: List[str]) -> bool:
