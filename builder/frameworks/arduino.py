@@ -30,104 +30,15 @@ from os.path import join
 from SCons.Script import COMMAND_LINE_TARGETS, DefaultEnvironment, SConscript
 from platformio.package.version import pepver_to_semver
 
+# Initialize environment and configuration
 env = DefaultEnvironment()
+platform = env.PioPlatform()
+platformio_dir = projectconfig.get("platformio", "core_dir")
+
+# Setup Python virtual environment and get executable paths
+PYTHON_EXE, esptool_binary_path = setup_python_environment(env, platform, platformio_dir)
 
 if "nobuild" not in COMMAND_LINE_TARGETS:
     SConscript(
         join(DefaultEnvironment().PioPlatform().get_package_dir(
             "framework-arduinoespressif8266"), "tools", "platformio-build.py"))
-
-def install_python_deps():
-    def _get_installed_packages():
-        result = {}
-        packages = {}
-        
-        # First try uv, fallback to pip if uv is not available
-        try:
-            uv_output = subprocess.check_output(
-                [
-                    "uv",
-                    "pip",
-                    "list",
-                    "--format=json"
-                ]
-            )
-            packages = json.loads(uv_output)
-            use_uv = True
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            # Fallback to pip if uv is not available
-            try:
-                pip_output = subprocess.check_output(
-                    [
-                        env.subst("$PYTHONEXE"),
-                        "-m",
-                        "pip",
-                        "list",
-                        "--format=json",
-                        "--disable-pip-version-check",
-                    ]
-                )
-                packages = json.loads(pip_output)
-                use_uv = False
-            except:
-                print("Warning! Couldn't extract the list of installed Python packages.")
-                return {}, False
-        except:
-            print("Warning! Couldn't extract the list of installed Python packages.")
-            return {}, False
-            
-        for p in packages:
-            result[p["name"]] = pepver_to_semver(p["version"])
-
-        return result, use_uv
-
-    deps = {
-        "wheel": ">=0.35.1",
-        "zopfli": ">=0.2.2"
-    }
-
-    installed_packages, use_uv = _get_installed_packages()
-    packages_to_install = []
-    for package, spec in deps.items():
-        if package not in installed_packages:
-            packages_to_install.append(package)
-        else:
-            version_spec = semantic_version.Spec(spec)
-            if not version_spec.match(installed_packages[package]):
-                packages_to_install.append(package)
-
-    if packages_to_install:
-        if use_uv:
-            # Use uv for package installation
-            env.Execute(
-                env.VerboseAction(
-                    (
-                        'uv pip install '
-                        + " ".join(
-                            [
-                                '"%s%s"' % (p, deps[p])
-                                for p in packages_to_install
-                            ]
-                        )
-                    ),
-                    "Installing Python dependencies with uv",
-                )
-            )
-        else:
-            # Fallback to pip
-            env.Execute(
-                env.VerboseAction(
-                    (
-                        '"$PYTHONEXE" -m pip install -U '
-                        + " ".join(
-                            [
-                                '"%s%s"' % (p, deps[p])
-                                for p in packages_to_install
-                            ]
-                        )
-                    ),
-                    "Installing Python dependencies with pip",
-                )
-            )
-
-install_python_deps()
