@@ -23,6 +23,7 @@ import shutil
 import logging
 from typing import Optional, Dict, List, Any
 
+from platformio.compat import IS_WINDOWS
 from platformio.public import PlatformBase, to_unix_path
 from platformio.proc import get_pythonexe_path
 from platformio.project.config import ProjectConfig
@@ -47,11 +48,8 @@ CHECK_PACKAGES = [
     "tool-pvs-studio"
 ]
 
-# System-specific configuration
-IS_WINDOWS = sys.platform.startswith("win")
 # Set Platformio env var to use windows_amd64 for all windows architectures
 # only windows_amd64 native espressif toolchains are available
-# needs platformio/pioarduino core >= 6.1.17
 if IS_WINDOWS:
     os.environ["PLATFORMIO_SYSTEM_TYPE"] = "windows_amd64"
 
@@ -76,7 +74,7 @@ def safe_file_operation(operation_func):
             return False
         except Exception as e:
             logger.error(f"Unexpected error in {operation_func.__name__}: {e}")
-            raise  # Re-raise unexpected exceptions
+            raise
     return wrapper
 
 
@@ -131,7 +129,7 @@ def safe_copy_directory(src: str, dst: str) -> bool:
 
 
 class Espressif8266Platform(PlatformBase):
-    """ESP8266 platform implementation for PlatformIO with optimized toolchain management."""
+    """ESP8266 platform implementation without using Platformio registry."""
 
     def __init__(self, *args, **kwargs):
         """Initialize the ESP8266 platform with caching mechanisms."""
@@ -169,8 +167,7 @@ class Espressif8266Platform(PlatformBase):
         if not os.path.exists(package_json_path):
             logger.info(f"{tl_install_name} not installed, installing version {required_version}")
             return self._install_tl_install(required_version)
-        
-        # Read installed version
+
         try:
             with open(package_json_path, 'r', encoding='utf-8') as f:
                 package_data = json.load(f)
@@ -179,11 +176,10 @@ class Espressif8266Platform(PlatformBase):
             if not installed_version:
                 logger.warning(f"Installed version for {tl_install_name} unknown, installing {required_version}")
                 return self._install_tl_install(required_version)
-            
-            # IMPORTANT: Compare versions correctly
+
             if self._compare_tl_install_versions(installed_version, required_version):
                 logger.debug(f"{tl_install_name} version {installed_version} is already correctly installed")
-                # IMPORTANT: Set package as available, but do NOT reinstall
+                # Set package as available, but do NOT reinstall
                 self.packages[tl_install_name]["optional"] = True
                 return True
             else:
