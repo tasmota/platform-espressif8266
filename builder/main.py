@@ -318,7 +318,7 @@ target_size = env.AddPlatformTarget(
 # Target: Upload firmware or filesystem image
 #
 
-upload_protocol = env.subst("$UPLOAD_PROTOCOL")
+upload_protocol = env.subst("$UPLOAD_PROTOCOL") or "esptool"
 upload_actions = []
 
 # Compatibility with old OTA configurations
