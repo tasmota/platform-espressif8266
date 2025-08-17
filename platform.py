@@ -31,20 +31,20 @@ from platformio.package.manager.tool import ToolPackageManager
 # Constants
 RETRY_LIMIT = 3
 SUBPROCESS_TIMEOUT = 300
-DEFAULT_DEBUG_SPEED = "5000"
-DEFAULT_APP_OFFSET = "0x10000"
-tl_install_name = "tool-esp_install"
 
+tl_install_name = "tool-esp_install"
 toolchain = "toolchain-xtensa"
+
+COMMON_PACKAGES = [
+    "tool-esptoolpy",
+    "tool-scons",
+    "contrib-piohome"
+]
 
 CHECK_PACKAGES = [
     "tool-cppcheck",
     "tool-clangtidy",
     "tool-pvs-studio"
-]
-
-COMMON_IDF_PACKAGES = [
-    "tool-scons",
 ]
 
 # System-specific configuration
@@ -486,37 +486,8 @@ class Espressif8266Platform(PlatformBase):
 
         return self.install_tool(tool_name, retry_count + 1)
 
-    def _configure_arduino_framework(self, frameworks: List[str]) -> None:
-        """Configure Arduino framework dependencies."""
-        if "arduino" not in frameworks:
-            return
-
-        self.packages["framework-arduinoespressif8266"]["optional"] = False
-
-    def _needs_debug_tools(self, variables: Dict, targets: List[str]) -> bool:
-        """Check if debug tools are needed based on build configuration."""
-        return bool(
-            variables.get("build_type") or
-            "debug" in targets
-        )
-
-    def _configure_mcu_toolchains(self, variables: Dict, targets: List[str]) -> None:
-        """Install toolchain with optimized installation."""
-
-        board_config = self.board_config(variables.get("board"))
-        mcu_config = board_config.get("debug", {})
-
-        self.install_tool(toolchain)
-
-        # Debug tools when needed
-        if self._needs_debug_tools(variables, targets):
-            debug_tools = mcu_config.get("debug_tools", {})
-            for debug_tool in debug_tools:
-                self.install_tool(debug_tool)
-
     def _configure_installer(self) -> None:
         """Configure the ESP-IDF tools installer with proper version checking."""
-        
         # Check version - installs only when needed
         if not self._check_tl_install_version():
             logger.error("Error during tool-esp_install version check / installation")
@@ -538,19 +509,22 @@ class Espressif8266Platform(PlatformBase):
         else:
             logger.warning(f"idf_tools.py not found in {installer_path}")
 
-    def _install_esptool_package(self) -> None:
-        """Install esptool package required for all builds."""
-        self.install_tool("tool-esptoolpy")
+    def _configure_arduino_framework(self, frameworks: List[str]) -> None:
+        """Configure Arduino framework dependencies."""
+        self.packages["framework-arduinoespressif8266"]["optional"] = False
 
-    def _install_common_idf_packages(self) -> None:
-        """Install common ESP-IDF packages required for all builds."""
-        for package in COMMON_IDF_PACKAGES:
+    def _configure_toolchain(self) -> None:
+        """Install esp8266 xtensa toolchain."""
+        self.install_tool(toolchain)
+
+    def _install_common_packages(self) -> None:
+        """Install common packages required for all builds."""
+        for package in COMMON_PACKAGES:
             self.install_tool(package)
 
     def _configure_check_tools(self, variables: Dict) -> None:
         """Configure static analysis and check tools based on configuration."""
         check_tools = variables.get("check_tool", [])
-        self.install_tool("contrib-piohome")
         if not check_tools:
             return
 
@@ -558,7 +532,7 @@ class Espressif8266Platform(PlatformBase):
             if any(tool in package for tool in check_tools):
                 self.install_tool(package)
 
-    def _install_filesystem_tool(self, filesystem: str, for_download: bool = False) -> None:
+    def _install_filesystem_tool(self, filesystem: str) -> None:
         """Install filesystem-specific tools based on the filesystem type."""
         tool_mapping = {
             "default": lambda: self.install_tool("tool-mklittlefs"),
@@ -573,7 +547,7 @@ class Espressif8266Platform(PlatformBase):
         filesystem = variables.get("board_build.filesystem", "littlefs")
 
         if any(target in targets for target in ["buildfs", "uploadfs", "downloadfs"]):
-            self._install_filesystem_tool(filesystem, for_download="downloadfs" in targets)
+            self._install_filesystem_tool(filesystem)
 
     def configure_default_packages(self, variables: Dict, targets: List[str]) -> Any:
         """Main configuration method with optimized package management."""
@@ -587,10 +561,9 @@ class Espressif8266Platform(PlatformBase):
         try:
             # Configuration steps
             self._configure_installer()
-            self._install_esptool_package()
-            self._install_common_idf_packages()
+            self._install_common_packages()
             self._configure_arduino_framework(frameworks)
-            self._configure_mcu_toolchains(variables, targets)
+            self._configure_toolchain()
             self._configure_filesystem_tools(variables, targets)
             self._configure_check_tools(variables)
 
