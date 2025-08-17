@@ -153,13 +153,13 @@ def _update_max_upload_size(env):
 
 def get_esptoolpy_reset_flags(resetmethod):
     # no dtr, no_sync
-    resets = ("no_reset_no_sync", "soft_reset")
+    resets = ("no-reset-no-sync", "soft-reset")
     if resetmethod == "nodemcu":
         # dtr
-        resets = ("default_reset", "hard_reset")
+        resets = ("default-reset", "hard-reset")
     elif resetmethod == "ck":
         # no dtr
-        resets = ("no_reset", "soft_reset")
+        resets = ("no-reset", "soft-reset")
 
     return ["--before", resets[0], "--after", resets[1]]
 
