@@ -353,7 +353,7 @@ elif upload_protocol == "esptool":
             "--chip", "esp8266",
             "--port", '"$UPLOAD_PORT"',
             "--baud", "$UPLOAD_SPEED",
-            "write_flash"
+            "write-flash"
         ],
         UPLOADCMD='$UPLOADER $UPLOADERFLAGS 0x0 $SOURCE'
     )
@@ -366,7 +366,7 @@ elif upload_protocol == "esptool":
                 "--chip", "esp8266",
                 "--port", '"$UPLOAD_PORT"',
                 "--baud", "$UPLOAD_SPEED",
-                "write_flash",
+                "write-flash",
                 "$FS_START"
             ],
             UPLOADCMD='$UPLOADER $UPLOADERFLAGS $SOURCE',
