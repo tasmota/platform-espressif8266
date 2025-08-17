@@ -171,6 +171,7 @@ uploader_path = (
     f'"{esptool_binary_path}"' 
     if ' ' in esptool_binary_path 
     else esptool_binary_path
+)
 
 env.Replace(
     __get_flash_size=_get_flash_size,
