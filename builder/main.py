@@ -134,6 +134,11 @@ def fetch_fs_size(env):
 
         env[k] = _value
 
+    # FFat specific offsets, see:
+    # https://github.com/lorol/arduino-esp32fatfs-plugin#notes-for-fatfs
+    if filesystem == "fatfs":
+        env["FS_START"] += 4096
+        env["FS_SIZE"] -= 4096
 
 def __fetch_fs_size(target, source, env):
     fetch_fs_size(env)
@@ -161,6 +166,11 @@ def get_esptoolpy_reset_flags(resetmethod):
 
 ########################################################
 
+# Take care of possible whitespaces in path
+uploader_path = (
+    f'"{esptool_binary_path}"' 
+    if ' ' in esptool_binary_path 
+    else esptool_binary_path
 
 env.Replace(
     __get_flash_size=_get_flash_size,
@@ -193,14 +203,9 @@ env.Replace(
     SIZEDATAREGEXP=r"^(?:\.data|\.rodata|\.bss)\s+([0-9]+).*",
     SIZECHECKCMD="$SIZETOOL -A -d $SOURCES",
     SIZEPRINTCMD='$SIZETOOL -B -d $SOURCES',
-
-    ERASEFLAGS=[
-        "--chip", "esp8266",
-        "--port", '"$UPLOAD_PORT"'
-    ],
-    ERASETOOL=join(
-        platform.get_package_dir("tool-esptoolpy") or "", "esptool.py"),
-    ERASECMD='"$PYTHONEXE" "$ERASETOOL" $ERASEFLAGS erase_flash',
+    ERASEFLAGS=["--chip", "esp8266", "--port", '"$UPLOAD_PORT"'],
+    ERASETOOL=uploader_path,
+    ERASECMD='$ERASETOOL $ERASEFLAGS erase-flash',
 
     PROGSUFFIX=".elf"
 )
@@ -210,15 +215,12 @@ env.Replace(
 def check_lib_archive_exists():
     for section in config.sections():
         if "lib_archive" in config.options(section):
-            #print(f"lib_archive in [{section}] found with value: {config.get(section, 'lib_archive')}")
             return True
-    #print("lib_archive was not found in platformio.ini")
     return False
 
 if not check_lib_archive_exists():
     env_section = "env:" + env["PIOENV"]
     config.set(env_section, "lib_archive", "False")
-    #print(f"lib_archive is set to False in [{env_section}]")
 
 # Allow user to override via pre:script
 if env.get("PROGNAME", "program") == "program":
@@ -246,7 +248,7 @@ env.Append(
                             "-b",
                             "$FS_BLOCK",
                         ]
-                        if filesystem in ("littlefs", "spiffs")
+                        if filesystem in ("littlefs", "spiffs", "fatfs")
                         else []
                     )
                     + ["$TARGET"]
@@ -276,7 +278,7 @@ if "nobuild" in COMMAND_LINE_TARGETS:
 else:
     target_elf = env.BuildProgram()
     if set(["buildfs", "uploadfs", "uploadfsota"]) & set(COMMAND_LINE_TARGETS):
-        if filesystem not in ("littlefs", "spiffs"):
+        if filesystem not in ("littlefs", "spiffs", "fatfs"):
             sys.stderr.write("Filesystem %s is not supported!\n" % filesystem)
             env.Exit(1)
         target_firm = env.DataToBin(
@@ -351,15 +353,14 @@ if upload_protocol == "espota":
 
 elif upload_protocol == "esptool":
     env.Replace(
-        UPLOADER=join(
-            platform.get_package_dir("tool-esptoolpy") or "", "esptool.py"),
+        UPLOADER=uploader_path,
         UPLOADERFLAGS=[
             "--chip", "esp8266",
             "--port", '"$UPLOAD_PORT"',
             "--baud", "$UPLOAD_SPEED",
             "write_flash"
         ],
-        UPLOADCMD='"$PYTHONEXE" "$UPLOADER" $UPLOADERFLAGS 0x0 $SOURCE'
+        UPLOADCMD='$UPLOADER $UPLOADERFLAGS 0x0 $SOURCE'
     )
     for image in env.get("FLASH_EXTRA_IMAGES", []):
         env.Append(UPLOADERFLAGS=[image[0], env.subst(image[1])])
@@ -373,7 +374,7 @@ elif upload_protocol == "esptool":
                 "write_flash",
                 "$FS_START"
             ],
-            UPLOADCMD='"$PYTHONEXE" "$UPLOADER" $UPLOADERFLAGS $SOURCE',
+            UPLOADCMD='$UPLOADER $UPLOADERFLAGS $SOURCE',
         )
 
     env.Prepend(
