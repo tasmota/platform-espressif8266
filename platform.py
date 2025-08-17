@@ -138,7 +138,6 @@ class Espressif8266Platform(PlatformBase):
         super().__init__(*args, **kwargs)
         self._packages_dir = None
         self._tools_cache = {}
-        self._mcu_config_cache = {}
 
     @property
     def packages_dir(self) -> str:
