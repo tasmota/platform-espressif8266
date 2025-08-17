@@ -134,12 +134,6 @@ def fetch_fs_size(env):
 
         env[k] = _value
 
-    # FFat specific offsets, see:
-    # https://github.com/lorol/arduino-esp32fatfs-plugin#notes-for-fatfs
-    if filesystem == "fatfs":
-        env["FS_START"] += 4096
-        env["FS_SIZE"] -= 4096
-
 def __fetch_fs_size(target, source, env):
     fetch_fs_size(env)
     return (target, source)
@@ -249,7 +243,7 @@ env.Append(
                             "-b",
                             "$FS_BLOCK",
                         ]
-                        if filesystem in ("littlefs", "spiffs", "fatfs")
+                        if filesystem in ("littlefs", "spiffs")
                         else []
                     )
                     + ["$TARGET"]
