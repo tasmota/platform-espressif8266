@@ -473,7 +473,7 @@ class Espressif8266Platform(PlatformBase):
         logger.info(f"Tool {tool_name} successfully installed")
         return True
 
-     def _handle_existing_tool(self, tool_name: str, paths: Dict[str, str]) -> bool:
+    def _handle_existing_tool(self, tool_name: str, paths: Dict[str, str]) -> bool:
         """Handle already installed tools with version checking."""
         if self._check_tool_version(tool_name):
             # Version matches, use tool
