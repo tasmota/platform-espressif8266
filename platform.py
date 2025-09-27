@@ -598,7 +598,6 @@ class Espressif8266Platform(PlatformBase):
 
         # Base configuration
         board_config = self.board_config(variables.get("board"))
-        mcu = variables.get("board_build.mcu", board_config.get("build.mcu", "esp32"))
         frameworks = list(variables.get("pioframework", []))  # Create copy
 
         try:
