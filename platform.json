@@ -17,7 +17,7 @@
     "type": "git",
     "url": "https://github.com/tasmota/platform-espressif8266.git"
   },
-  "version": "2025.09.00",
+  "version": "2025.10.00",
   "frameworks": {
     "arduino": {
       "package": "framework-arduinoespressif8266",
