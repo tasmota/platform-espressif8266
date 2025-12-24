@@ -17,10 +17,10 @@ import os
 import re
 import semantic_version
 import site
-import socket
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 from platformio.package.version import pepver_to_semver
 from platformio.compat import IS_WINDOWS
@@ -37,13 +37,14 @@ if sys.version_info < (3, 10):
 github_actions = bool(os.getenv("GITHUB_ACTIONS"))
 
 PLATFORMIO_URL_VERSION_RE = re.compile(
-    r'/v?(\d+\.\d+\.\d+(?:[.-]\w+)?(?:\.\d+)?)(?:\.(?:zip|tar\.gz|tar\.bz2))?$',
+    r'/v?(\d+\.\d+\.\d+(?:[.-](?:alpha|beta|rc|dev|post|pre)\d*)?(?:\.\d+)?)(?:\.(?:zip|tar\.gz|tar\.bz2))?$',
     re.IGNORECASE,
 )
 
 # Python dependencies required for platform builds
 python_deps = {
     "platformio": "https://github.com/pioarduino/platformio-core/archive/refs/tags/v6.1.18.zip",
+    "littlefs-python": ">=0.16.0",
     "pyyaml": ">=6.0.2",
     "rich-click": ">=1.8.6",
     "zopfli": ">=0.2.2",
@@ -58,16 +59,44 @@ python_deps = {
 }
 
 
-def has_internet_connection(host="1.1.1.1", port=53, timeout=2):
+def has_internet_connection(timeout=5):
     """
-    Checks if an internet connection is available (default: Cloudflare DNS server).
-    Returns True if a connection is possible, otherwise False.
+    Checks practical internet reachability for dependency installation.
+    1) If HTTPS/HTTP proxy environment variable is set, test TCP connectivity to the proxy endpoint.
+    2) Otherwise, test direct TCP connectivity to common HTTPS endpoints (port 443).
+    
+    Args:
+        timeout (int): Timeout duration in seconds for the connection test.
+
+    Returns:
+        True if at least one path appears reachable; otherwise False.
     """
-    try:
-        with socket.create_connection((host, port), timeout=timeout):
+    # 1) Test TCP connectivity to the proxy endpoint.
+    proxy = os.getenv("HTTPS_PROXY") or os.getenv("https_proxy") or os.getenv("HTTP_PROXY") or os.getenv("http_proxy")
+    if proxy:
+        try:
+            u = urlparse(proxy if "://" in proxy else f"http://{proxy}")
+            host = u.hostname
+            port = u.port or (443 if u.scheme == "https" else 80)
+            if host and port:
+                socket.create_connection((host, port), timeout=timeout).close()
+                return True
+        except Exception:
+            # If proxy connection fails, fall back to direct connection test
+            pass
+
+    # 2) Test direct TCP connectivity to common HTTPS endpoints (port 443).
+    https_hosts = ("pypi.org", "files.pythonhosted.org", "github.com")
+    for host in https_hosts:
+        try:
+            socket.create_connection((host, 443), timeout=timeout).close()
             return True
-    except OSError:
-        return False
+        except Exception:
+            continue
+
+    # Direct DNS:53 connection is abolished due to many false positives on enterprise networks
+    # (add it at the end if necessary)
+    return False
 
 
 def get_executable_path(penv_dir, executable_name):
@@ -285,18 +314,18 @@ def install_python_deps(python_exe, external_uv_executable):
                     for p in packages:
                         result[p["name"].lower()] = pepver_to_semver(p["version"])
             else:
-                print(f"Error: uv pip list failed with exit code {result_obj.returncode}")
+                print(f"Warning: uv pip list failed with exit code {result_obj.returncode}")
                 if result_obj.stderr:
                     print(f"Error output: {result_obj.stderr.strip()}")
                 
         except subprocess.TimeoutExpired:
-            print("Error: uv pip list command timed out")
+            print("Warning: uv pip list command timed out")
         except (json.JSONDecodeError, KeyError) as e:
-            print(f"Error: Could not parse package list: {e}")
+            print(f"Warning: Could not parse package list: {e}")
         except FileNotFoundError:
-            print("Error: uv command not found")
+            print("Warning: uv command not found")
         except Exception as e:
-            print(f"Error! Couldn't extract the list of installed Python packages: {e}")
+            print(f"Warning! Couldn't extract the list of installed Python packages: {e}")
 
         return result
 
@@ -305,39 +334,39 @@ def install_python_deps(python_exe, external_uv_executable):
     
     if packages_to_install:
         packages_list = []
-        package_map = {}
         for p in packages_to_install:
             spec = python_deps[p]
             if spec.startswith(('http://', 'https://', 'git+', 'file://')):
                 packages_list.append(spec)
-                package_map[spec] = p
             else:
-                full_spec = f"{p}{spec}"
-                packages_list.append(full_spec)
-                package_map[full_spec] = p
+                packages_list.append(f"{p}{spec}")
         
-        for package_spec in packages_list:
-            cmd = [
-                penv_uv_executable, "pip", "install",
-                f"--python={python_exe}",
-                "--quiet", "--upgrade",
-                package_spec
-            ]
-            try:
-                subprocess.check_call(
-                    cmd,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.STDOUT,
-                    timeout=300
-                )
-            except subprocess.CalledProcessError as e:
-                print(f"Error: Installing package '{package_map.get(package_spec, package_spec)}' failed (exit code {e.returncode}).")
-            except subprocess.TimeoutExpired:
-                print(f"Error: Installing package '{package_map.get(package_spec, package_spec)}' timed out.")
-            except FileNotFoundError:
-                print("Error: uv command not found")
-            except Exception as e:
-                print(f"Error: Installing package '{package_map.get(package_spec, package_spec)}': {e}.")
+        cmd = [
+            penv_uv_executable, "pip", "install",
+            f"--python={python_exe}",
+            "--quiet", "--upgrade"
+        ] + packages_list
+        
+        try:
+            subprocess.check_call(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.STDOUT,
+                timeout=300
+            )
+                
+        except subprocess.CalledProcessError as e:
+            print(f"Error: Failed to install Python dependencies (exit code: {e.returncode})")
+            return False
+        except subprocess.TimeoutExpired:
+            print("Error: Python dependencies installation timed out")
+            return False
+        except FileNotFoundError:
+            print("Error: uv command not found")
+            return False
+        except Exception as e:
+            print(f"Error installing Python dependencies: {e}")
+            return False
     
     return True
 
