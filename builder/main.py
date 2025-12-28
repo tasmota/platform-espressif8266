@@ -17,12 +17,21 @@
 import functools
 import re
 import sys
-from os.path import join
+import struct
+import shutil
+import subprocess
+from os.path import join, isfile
+from pathlib import Path
 from penv_setup import setup_python_environment
+from littlefs import LittleFS
+from fatfs import Partition, RamDisk, create_extended_partition
 
 from SCons.Script import (
     ARGUMENTS, COMMAND_LINE_TARGETS, AlwaysBuild, Builder, Default,
     DefaultEnvironment)
+
+# Import SPIFFS generator from local module
+import importlib.util
 
 # Initialize environment and configuration
 env = DefaultEnvironment()
@@ -31,9 +40,19 @@ config = env.GetProjectConfig()
 board = env.BoardConfig()
 filesystem = board.get("build.filesystem", "littlefs")
 platformio_dir = config.get("platformio", "core_dir")
+platform_dir = Path(platform.get_dir())
 
 # Setup Python virtual environment and get executable paths
 PYTHON_EXE, esptool_binary_path = setup_python_environment(env, platform, platformio_dir)
+
+# Load SPIFFS generator from local module
+spiffsgen_path = platform_dir / "builder" / "spiffsgen.py"
+spec = importlib.util.spec_from_file_location("spiffsgen", str(spiffsgen_path))
+spiffsgen = importlib.util.module_from_spec(spec)
+sys.modules["spiffsgen"] = spiffsgen
+spec.loader.exec_module(spiffsgen)
+SpiffsFS = spiffsgen.SpiffsFS
+SpiffsBuildConfig = spiffsgen.SpiffsBuildConfig
 
 #
 # Helpers
@@ -133,6 +152,288 @@ def fetch_fs_size(env):
             _value += 0xE00000  # correction
 
         env[k] = _value
+    
+    # Calculate FS_SIZE for filesystem builders
+    env["FS_SIZE"] = env["FS_END"] - env["FS_START"]
+
+
+def build_fs_image(target, source, env):
+    """
+    Build LittleFS filesystem image using littlefs-python.
+
+    Args:
+        target: SCons target (output .bin file)
+        source: SCons source (directory with files)
+        env: SCons environment object
+
+    Returns:
+        int: 0 on success, 1 on failure
+    """
+    # Get parameters
+    source_dir = str(source[0])
+    target_file = str(target[0])
+    fs_size = env["FS_SIZE"]
+    block_size = env.get("FS_BLOCK", 4096)
+
+    # Calculate block count
+    block_count = fs_size // block_size
+
+    # Get disk version from board config or project options
+    disk_version_str = "2.1"
+    
+    for section in ["common", "env:" + env["PIOENV"]]:
+        if config.has_option(section, "board_build.littlefs_version"):
+            disk_version_str = config.get(section, "board_build.littlefs_version")
+            break
+    
+    try:
+        version_parts = str(disk_version_str).split(".")
+        major = int(version_parts[0])
+        minor = int(version_parts[1]) if len(version_parts) > 1 else 0
+        disk_version = (major << 16) | minor
+    except (ValueError, IndexError):
+        print(f"Warning: Invalid littlefs version '{disk_version_str}', using default 2.1")
+        disk_version = (2 << 16) | 1
+
+    try:
+        fs = LittleFS(
+            block_size=block_size,
+            block_count=block_count,
+            read_size=1,
+            prog_size=1,
+            cache_size=block_size,
+            lookahead_size=32,
+            block_cycles=500,
+            name_max=64,
+            disk_version=disk_version,
+            mount=True
+        )
+
+        source_path = Path(source_dir)
+        if source_path.exists():
+            for item in source_path.rglob("*"):
+                rel_path = item.relative_to(source_path)
+                fs_path = rel_path.as_posix()
+                
+                if item.is_dir():
+                    fs.makedirs(fs_path, exist_ok=True)
+                    try:
+                        mtime = int(item.stat().st_mtime)
+                        fs.setattr(fs_path, 't', mtime.to_bytes(4, 'little'))
+                    except Exception:
+                        pass
+                else:
+                    if rel_path.parent != Path("."):
+                        fs.makedirs(rel_path.parent.as_posix(), exist_ok=True)
+                    with fs.open(fs_path, "wb") as dest:
+                        dest.write(item.read_bytes())
+                    try:
+                        mtime = int(item.stat().st_mtime)
+                        fs.setattr(fs_path, 't', mtime.to_bytes(4, 'little'))
+                    except Exception:
+                        pass
+
+        with open(target_file, "wb") as f:
+            f.write(fs.context.buffer)
+
+        return 0
+
+    except Exception as e:
+        print(f"Error building LittleFS image: {e}")
+        return 1
+
+
+def build_spiffs_image(target, source, env):
+    """Build SPIFFS filesystem image using spiffsgen.py."""
+    source_dir = str(source[0])
+    target_file = str(target[0])
+    fs_size = env["FS_SIZE"]
+    page_size = env.get("FS_PAGE", 256)
+    block_size = env.get("FS_BLOCK", 4096)
+
+    obj_name_len = 32
+    meta_len = 4
+    use_magic = True
+    use_magic_len = True
+    aligned_obj_ix_tables = False
+
+    for section in ["common", "env:" + env["PIOENV"]]:
+        if config.has_option(section, "board_build.spiffs.obj_name_len"):
+            obj_name_len = int(config.get(section, "board_build.spiffs.obj_name_len"))
+        if config.has_option(section, "board_build.spiffs.meta_len"):
+            meta_len = int(config.get(section, "board_build.spiffs.meta_len"))
+        if config.has_option(section, "board_build.spiffs.use_magic"):
+            use_magic = config.getboolean(section, "board_build.spiffs.use_magic")
+        if config.has_option(section, "board_build.spiffs.use_magic_len"):
+            use_magic_len = config.getboolean(section, "board_build.spiffs.use_magic_len")
+        if config.has_option(section, "board_build.spiffs.aligned_obj_ix_tables"):
+            aligned_obj_ix_tables = config.getboolean(section, "board_build.spiffs.aligned_obj_ix_tables")
+
+    try:
+        spiffs_build_config = SpiffsBuildConfig(
+            page_size=page_size,
+            page_ix_len=2,
+            block_size=block_size,
+            block_ix_len=2,
+            meta_len=meta_len,
+            obj_name_len=obj_name_len,
+            obj_id_len=2,
+            span_ix_len=2,
+            packed=True,
+            aligned=True,
+            endianness='little',
+            use_magic=use_magic,
+            use_magic_len=use_magic_len,
+            aligned_obj_ix_tables=aligned_obj_ix_tables
+        )
+
+        spiffs = SpiffsFS(fs_size, spiffs_build_config)
+
+        source_path = Path(source_dir)
+        if source_path.exists():
+            for item in source_path.rglob("*"):
+                if item.is_file():
+                    rel_path = item.relative_to(source_path)
+                    img_path = "/" + rel_path.as_posix()
+                    spiffs.create_file(img_path, str(item))
+
+        image = spiffs.to_binary()
+
+        with open(target_file, "wb") as f:
+            f.write(image)
+
+        print(f"\nSuccessfully created SPIFFS image: {target_file}")
+        return 0
+
+    except Exception as e:
+        print(f"Error building SPIFFS image: {e}")
+        return 1
+
+
+def build_fatfs_image(target, source, env):
+    """Build FatFS filesystem image with ESP32 Wear Leveling support."""
+    source_dir = str(source[0])
+    target_file = str(target[0])
+    fs_size = env["FS_SIZE"]
+    sector_size = env.get("FS_SECTOR", 4096)
+    
+    from fatfs import calculate_esp32_wl_overhead
+    wl_info = calculate_esp32_wl_overhead(fs_size, sector_size)
+    
+    wl_reserved_sectors = wl_info['wl_overhead_sectors']
+    fat_fs_size = wl_info['fat_size']
+    sector_count = wl_info['fat_sectors']
+
+    try:
+        storage = bytearray(fat_fs_size)
+        disk = RamDisk(storage, sector_size=sector_size, sector_count=sector_count)
+        base_partition = Partition(disk)
+
+        from fatfs.wrapper import pyf_mkfs, PY_FR_OK as FR_OK
+        workarea_size = sector_size * 2
+        
+        ret = pyf_mkfs(
+            base_partition.pname, 
+            n_fat=2, 
+            align=0,
+            n_root=512,
+            au_size=0,
+            workarea_size=workarea_size
+        )
+        if ret != FR_OK:
+            raise Exception(f"Failed to format filesystem: error code {ret}")
+
+        base_partition.mount()
+
+        from fatfs.partition_extended import PartitionExtended
+        partition = PartitionExtended(base_partition)
+
+        skipped_files = []
+
+        source_path = Path(source_dir)
+        if source_path.exists():
+            for item in source_path.rglob("*"):
+                rel_path = item.relative_to(source_path)
+                fs_path = "/" + rel_path.as_posix()
+
+                if item.is_dir():
+                    try:
+                        partition.mkdir(fs_path)
+                    except Exception:
+                        pass
+                else:
+                    if rel_path.parent != Path("."):
+                        parent_path = "/" + rel_path.parent.as_posix()
+                        try:
+                            partition.mkdir(parent_path)
+                        except Exception:
+                            pass
+
+                    try:
+                        with partition.open(fs_path, "w") as dest:
+                            dest.write(item.read_bytes())
+                    except Exception as e:
+                        print(f"Warning: Failed to write file {rel_path}: {e}")
+                        skipped_files.append(str(rel_path))
+
+        base_partition.unmount()
+        
+        from fatfs import create_esp32_wl_image
+        wl_image = create_esp32_wl_image(bytes(storage), fs_size, sector_size)
+
+        with open(target_file, "wb") as f:
+            f.write(wl_image)
+
+        if skipped_files:
+            print(f"\nWarning: {len(skipped_files)} file(s) skipped")
+        
+        print(f"\nSuccessfully created FAT image: {target_file}")
+
+        return 0
+
+    except Exception as e:
+        print(f"Error building FatFS image: {e}")
+        return 1
+
+
+def build_fs_router(target, source, env):
+    """Route to appropriate filesystem builder based on filesystem type."""
+    fs_type = board.get("build.filesystem", "littlefs")
+    if fs_type == "littlefs":
+        return build_fs_image(target, source, env)
+    elif fs_type == "fatfs":
+        return build_fatfs_image(target, source, env)
+    elif fs_type == "spiffs":
+        return build_spiffs_image(target, source, env)
+    else:
+        print(f"Error: Unknown filesystem type '{fs_type}'. Supported types: littlefs, fatfs, spiffs")
+        return 1
+
+
+def fetch_fs_size(env):
+    ldsizes = _parse_ld_sizes(env.GetActualLDScript())
+    for key in ldsizes:
+        if key.startswith("fs_"):
+            env[key.upper()] = ldsizes[key]
+
+    assert all([
+        k in env
+        for k in ["FS_START", "FS_END", "FS_PAGE", "FS_BLOCK"]
+    ])
+
+    # esptool flash starts from 0
+    for k in ("FS_START", "FS_END"):
+        _value = 0
+        if env[k] < 0x40300000:
+            _value = env[k] & 0xFFFFF
+        elif env[k] < 0x411FB000:
+            _value = env[k] & 0xFFFFFF
+            _value -= 0x200000  # correction
+        else:
+            _value = env[k] & 0xFFFFFF
+            _value += 0xE00000  # correction
+
+        env[k] = _value
 
 def __fetch_fs_size(target, source, env):
     fetch_fs_size(env)
@@ -186,7 +487,6 @@ env.Replace(
     # Filesystem
     #
 
-    MKFSTOOL="mk%s" % filesystem,
     ESP8266_FS_IMAGE_NAME=env.get("ESP8266_FS_IMAGE_NAME", env.get(
         "SPIFFSNAME", filesystem)),
 
@@ -234,20 +534,7 @@ env.Append(
     BUILDERS=dict(
         DataToBin=Builder(
             action=env.VerboseAction(
-                " ".join(
-                    ['"$MKFSTOOL"', "-c", "$SOURCES", "-s", "${FS_END - FS_START}"]
-                    + (
-                        [
-                            "-p",
-                            "$FS_PAGE",
-                            "-b",
-                            "$FS_BLOCK",
-                        ]
-                        if filesystem in ("littlefs", "spiffs")
-                        else []
-                    )
-                    + ["$TARGET"]
-                ),
+                build_fs_router,
                 "Building FS image from '$SOURCES' directory to $TARGET",
             ),
             emitter=__fetch_fs_size,
@@ -421,6 +708,398 @@ env.AddPlatformTarget(
     ],
     "Erase Flash",
 )
+
+
+#
+# Filesystem Download Functions
+#
+
+def _get_unpack_dir(env):
+    """Get the unpack directory from project configuration."""
+    unpack_dir = "unpacked_fs"
+    for section in ["common", "env:" + env["PIOENV"]]:
+        if config.has_option(section, "board_build.unpack_dir"):
+            unpack_dir = config.get(section, "board_build.unpack_dir")
+            break
+    return unpack_dir
+
+
+def _prepare_unpack_dir(unpack_dir):
+    """Prepare the unpack directory by removing old content and creating fresh directory."""
+    from platformio.project.helpers import get_project_dir
+    unpack_path = Path(get_project_dir()) / unpack_dir
+    if unpack_path.exists():
+        shutil.rmtree(unpack_path)
+    unpack_path.mkdir(parents=True, exist_ok=True)
+    return unpack_path
+
+
+def _download_fs_image(env):
+    """Download filesystem image from ESP8266 device."""
+    from platformio.util import get_serial_ports
+    
+    # Ensure upload port is set
+    if not env.subst("$UPLOAD_PORT"):
+        env.AutodetectUploadPort()
+
+    upload_port = env.subst("$UPLOAD_PORT")
+    download_speed = board.get("download.speed", "115200")
+
+    # Get FS parameters from LD script
+    fetch_fs_size(env)
+    fs_start = env["FS_START"]
+    fs_size = env["FS_SIZE"]
+
+    print(f"\nDownloading filesystem from {upload_port}...")
+    print(f"  Start: {hex(fs_start)}")
+    print(f"  Size: {hex(fs_size)} ({fs_size} bytes)")
+
+    # Download filesystem image
+    from platformio.project.helpers import get_project_dir
+    build_dir = Path(get_project_dir()) / ".pio" / "build" / env["PIOENV"]
+    build_dir.mkdir(parents=True, exist_ok=True)
+    fs_file = build_dir / f"downloaded_fs_{hex(fs_start)}_{hex(fs_size)}.bin"
+
+    esptool_cmd = [
+        uploader_path.strip('"'),
+        "--chip", "esp8266",
+        "--port", upload_port,
+        "--baud", str(download_speed),
+        "--before", "default-reset",
+        "--after", "hard-reset",
+        "read-flash",
+        hex(fs_start),
+        hex(fs_size),
+        str(fs_file)
+    ]
+
+    try:
+        result = subprocess.run(esptool_cmd, check=False)
+        if result.returncode != 0:
+            print(f"Error: Download failed with code {result.returncode}")
+            return None, None, None
+    except Exception as e:
+        print(f"Error: {e}")
+        return None, None, None
+
+    print(f"\nDownloaded to {fs_file}")
+    return fs_file, fs_start, fs_size
+
+
+def _parse_littlefs_superblock(fs_data):
+    """Parse LittleFS superblock to extract filesystem parameters."""
+    try:
+        for try_block_size in [4096, 512, 1024, 2048, 8192]:
+            max_search = min(len(fs_data), try_block_size * 2)
+            
+            magic_offset = fs_data[:max_search].find(b'littlefs')
+            if magic_offset == -1:
+                continue
+            
+            for struct_offset in [magic_offset + 8, magic_offset + 12, magic_offset + 16]:
+                if struct_offset + 24 > len(fs_data):
+                    continue
+                
+                try:
+                    version = struct.unpack('<I', fs_data[struct_offset:struct_offset + 4])[0]
+                    block_size = struct.unpack('<I', fs_data[struct_offset + 4:struct_offset + 8])[0]
+                    block_count = struct.unpack('<I', fs_data[struct_offset + 8:struct_offset + 12])[0]
+                    name_max = struct.unpack('<I', fs_data[struct_offset + 12:struct_offset + 16])[0]
+                    file_max = struct.unpack('<I', fs_data[struct_offset + 16:struct_offset + 20])[0]
+                    attr_max = struct.unpack('<I', fs_data[struct_offset + 20:struct_offset + 24])[0]
+                    
+                    version_major = (version >> 16) & 0xFFFF
+                    version_minor = version & 0xFFFF
+                    
+                    if (block_size in [512, 1024, 2048, 4096, 8192, 16384] and
+                        block_count > 0 and block_count < 0x10000000 and
+                        name_max > 0 and name_max <= 1022 and
+                        version_major > 0 and version_major <= 10):
+                        
+                        print("\nDetected LittleFS parameters from superblock:")
+                        print(f"  Version: {version_major}.{version_minor}")
+                        print(f"  Block size: {block_size} bytes")
+                        print(f"  Block count: {block_count}")
+                        print(f"  Max filename length: {name_max}")
+                        
+                        return {
+                            'version_major': version_major,
+                            'version_minor': version_minor,
+                            'block_size': block_size,
+                            'block_count': block_count,
+                            'name_max': name_max,
+                            'file_max': file_max,
+                            'attr_max': attr_max,
+                        }
+                except struct.error:
+                    continue
+    
+    except Exception as e:
+        print(f"Warning: Failed to parse LittleFS superblock: {e}")
+    
+    return None
+
+
+def _extract_littlefs(fs_file, fs_size, unpack_path, unpack_dir):
+    """Extract LittleFS filesystem with auto-detected parameters."""
+    with open(fs_file, 'rb') as f:
+        fs_data = f.read()
+
+    superblock = _parse_littlefs_superblock(fs_data)
+    
+    if superblock:
+        block_size = superblock['block_size']
+        block_count = superblock['block_count']
+        name_max = superblock['name_max']
+        print("\nUsing auto-detected LittleFS parameters")
+    else:
+        print("\nWarning: Could not auto-detect LittleFS parameters, using defaults")
+        block_size = 0x1000
+        block_count = fs_size // block_size
+        name_max = 64
+        print(f"  Block size: {block_size} bytes (default)")
+        print(f"  Block count: {block_count} (calculated)")
+        print(f"  Max filename length: {name_max} (default)")
+
+    try:
+        fs = LittleFS(
+            block_size=block_size,
+            block_count=block_count,
+            name_max=name_max,
+            mount=False
+        )
+        fs.context.buffer = bytearray(fs_data)
+        fs.mount()
+    except Exception as e:
+        if superblock:
+            print(f"\nWarning: Mount failed with detected parameters: {e}")
+            print("Retrying with default parameters...")
+            block_size = 0x1000
+            block_count = fs_size // block_size
+            name_max = 64
+            fs = LittleFS(
+                block_size=block_size,
+                block_count=block_count,
+                name_max=name_max,
+                mount=False
+            )
+            fs.context.buffer = bytearray(fs_data)
+            fs.mount()
+        else:
+            raise
+
+    file_count = 0
+    print("\nExtracted files:")
+    for root, dirs, files in fs.walk("/"):
+        if not root.endswith("/"):
+            root += "/"
+
+        for dir_name in dirs:
+            src_path = root + dir_name
+            dst_path = unpack_path / src_path[1:]
+            dst_path.mkdir(parents=True, exist_ok=True)
+            print(f"  [DIR]  {src_path}")
+
+        for file_name in files:
+            src_path = root + file_name
+            dst_path = unpack_path / src_path[1:]
+            dst_path.parent.mkdir(parents=True, exist_ok=True)
+
+            with fs.open(src_path, "rb") as src:
+                file_data = src.read()
+                dst_path.write_bytes(file_data)
+
+            print(f"  [FILE] {src_path} ({len(file_data)} bytes)")
+            file_count += 1
+
+    fs.unmount()
+    print(f"\nSuccessfully extracted {file_count} file(s) to {unpack_dir}")
+    return 0
+
+
+def _extract_spiffs(fs_file, fs_size, unpack_path, unpack_dir, env):
+    """Extract SPIFFS filesystem."""
+    page_size = env.get("FS_PAGE", 256)
+    block_size = env.get("FS_BLOCK", 4096)
+    obj_name_len = 32
+    meta_len = 4
+    use_magic = True
+    use_magic_len = True
+    aligned_obj_ix_tables = False
+
+    for section in ["common", "env:" + env["PIOENV"]]:
+        if config.has_option(section, "board_build.spiffs.obj_name_len"):
+            obj_name_len = int(config.get(section, "board_build.spiffs.obj_name_len"))
+        if config.has_option(section, "board_build.spiffs.meta_len"):
+            meta_len = int(config.get(section, "board_build.spiffs.meta_len"))
+        if config.has_option(section, "board_build.spiffs.use_magic"):
+            use_magic = config.getboolean(section, "board_build.spiffs.use_magic")
+        if config.has_option(section, "board_build.spiffs.use_magic_len"):
+            use_magic_len = config.getboolean(section, "board_build.spiffs.use_magic_len")
+        if config.has_option(section, "board_build.spiffs.aligned_obj_ix_tables"):
+            aligned_obj_ix_tables = config.getboolean(section, "board_build.spiffs.aligned_obj_ix_tables")
+
+    with open(fs_file, 'rb') as f:
+        fs_data = f.read()
+
+    spiffs_build_config = SpiffsBuildConfig(
+        page_size=page_size,
+        page_ix_len=2,
+        block_size=block_size,
+        block_ix_len=2,
+        meta_len=meta_len,
+        obj_name_len=obj_name_len,
+        obj_id_len=2,
+        span_ix_len=2,
+        packed=True,
+        aligned=True,
+        endianness='little',
+        use_magic=use_magic,
+        use_magic_len=use_magic_len,
+        aligned_obj_ix_tables=aligned_obj_ix_tables
+    )
+
+    spiffs = SpiffsFS(fs_size, spiffs_build_config)
+    spiffs.from_binary(fs_data)
+
+    file_count = spiffs.extract_files(str(unpack_path))
+
+    if file_count == 0:
+        print("\nNo files were extracted.")
+        print("The filesystem may be empty, freshly formatted, or contain only deleted entries.")
+    else:
+        print(f"\nSuccessfully extracted {file_count} file(s) to {unpack_dir}")
+
+    return 0
+
+
+def _extract_fatfs(fs_file, unpack_path, unpack_dir):
+    """Extract FatFS filesystem."""
+    with open(fs_file, 'rb') as f:
+        fs_data = bytearray(f.read())
+
+    if len(fs_data) < 512:
+        print("Error: Downloaded image is too small to be a valid FAT filesystem")
+        return 1
+
+    from fatfs import is_esp32_wl_image, extract_fat_from_esp32_wl
+    
+    sector_size = 4096
+    
+    if is_esp32_wl_image(fs_data, sector_size):
+        print("Detected Wear Leveling layer, extracting FAT data...")
+        fat_data = extract_fat_from_esp32_wl(fs_data, sector_size)
+        if fat_data is None:
+            print("Error: Failed to extract FAT data from wear-leveling image")
+            return 1
+        fs_data = bytearray(fat_data)
+        print(f"  Extracted FAT data: {len(fs_data)} bytes")
+    else:
+        print("No Wear Leveling layer detected, treating as raw FAT image...")
+
+    sector_size = int.from_bytes(fs_data[0x0B:0x0D], byteorder='little')
+
+    if sector_size not in [512, 1024, 2048, 4096]:
+        print(f"Error: Invalid sector size {sector_size}. Must be 512, 1024, 2048, or 4096")
+        return 1
+
+    from fatfs import RamDisk, create_extended_partition
+    fs_size_adjusted = len(fs_data)
+    sector_count = fs_size_adjusted // sector_size
+    disk = RamDisk(fs_data, sector_size=sector_size, sector_count=sector_count)
+    partition = create_extended_partition(disk)
+    partition.mount()
+
+    print("\nExtracting files:\n")
+    extracted_count = 0
+    for root, _dirs, files in partition.walk("/"):
+        rel_root = root[1:] if root.startswith("/") else root
+        abs_root = unpack_path / rel_root
+        abs_root.mkdir(parents=True, exist_ok=True)
+        for filename in files:
+            src_file = root.rstrip("/") + "/" + filename if root != "/" else "/" + filename
+            dst_file = abs_root / filename
+            try:
+                data = partition.read_file(src_file)
+                dst_file.write_bytes(data)
+                print(f"  FILE: {src_file} ({len(data)} bytes)")
+                extracted_count += 1
+            except Exception as e:
+                print(f"  Warning: Failed to extract {src_file}: {e}")
+    partition.unmount()
+    
+    if extracted_count == 0:
+        print("\nNo files were extracted.")
+        print("The filesystem may be empty, freshly formatted, or contain only deleted entries.")
+    else:
+        print(f"\nSuccessfully extracted {extracted_count} file(s) to {unpack_dir}")
+    
+    return 0
+
+
+def download_fs(target, source, env):
+    """
+    Download filesystem from device and extract to directory.
+    Automatically detects filesystem type (LittleFS, SPIFFS, or FatFS).
+    Usage: pio run -e <env> -t download_fs
+    """
+    unpack_dir = _get_unpack_dir(env)
+
+    # Download filesystem image
+    fs_file, fs_start, fs_size = _download_fs_image(env)
+
+    if fs_file is None:
+        return 1
+
+    # Detect filesystem type
+    fs_type = None
+    
+    print("\nDetecting filesystem type...")
+    
+    try:
+        with open(fs_file, 'rb') as f:
+            header = f.read(8192)
+            
+            # Check for "littlefs" ASCII string
+            if b'littlefs' in header:
+                fs_type = "littlefs"
+                print("  Found 'littlefs' signature - detected as LittleFS")
+            else:
+                # Default to SPIFFS for ESP8266
+                fs_type = "spiffs"
+                print("  No LittleFS signature found - detected as SPIFFS")
+    except Exception as e:
+        print(f" Error reading filesystem signature: {e}")
+        print("  Defaulting to SPIFFS")
+        fs_type = "spiffs"
+
+    unpack_path = _prepare_unpack_dir(unpack_dir)
+
+    print(f"\nExtracting {fs_type.upper()} filesystem...\n")
+    
+    try:
+        if fs_type == "littlefs":
+            return _extract_littlefs(fs_file, fs_size, unpack_path, unpack_dir)
+        elif fs_type == "spiffs":
+            return _extract_spiffs(fs_file, fs_size, unpack_path, unpack_dir, env)
+        elif fs_type == "fatfs":
+            return _extract_fatfs(fs_file, unpack_path, unpack_dir)
+        else:
+            print(f"Error: Unsupported filesystem type '{fs_type}'")
+            return 1
+    except Exception as e:
+        print(f"Error: Failed to extract {fs_type.upper()} filesystem: {e}")
+        return 1
+
+
+# Target: Download Filesystem (auto-detect type)
+env.AddPlatformTarget(
+    "download_fs",
+    None,
+    download_fs,
+    "Download and extract filesystem from device",
+)
+
 
 #
 # Default targets
