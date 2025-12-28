@@ -785,60 +785,6 @@ def _download_fs_image(env):
     return fs_file, fs_start, fs_size
 
 
-def _parse_littlefs_superblock(fs_data):
-    """Parse LittleFS superblock to extract filesystem parameters."""
-    try:
-        for try_block_size in [4096, 512, 1024, 2048, 8192]:
-            max_search = min(len(fs_data), try_block_size * 2)
-            
-            magic_offset = fs_data[:max_search].find(b'littlefs')
-            if magic_offset == -1:
-                continue
-            
-            for struct_offset in [magic_offset + 8, magic_offset + 12, magic_offset + 16]:
-                if struct_offset + 24 > len(fs_data):
-                    continue
-                
-                try:
-                    version = struct.unpack('<I', fs_data[struct_offset:struct_offset + 4])[0]
-                    block_size = struct.unpack('<I', fs_data[struct_offset + 4:struct_offset + 8])[0]
-                    block_count = struct.unpack('<I', fs_data[struct_offset + 8:struct_offset + 12])[0]
-                    name_max = struct.unpack('<I', fs_data[struct_offset + 12:struct_offset + 16])[0]
-                    file_max = struct.unpack('<I', fs_data[struct_offset + 16:struct_offset + 20])[0]
-                    attr_max = struct.unpack('<I', fs_data[struct_offset + 20:struct_offset + 24])[0]
-                    
-                    version_major = (version >> 16) & 0xFFFF
-                    version_minor = version & 0xFFFF
-                    
-                    if (block_size in [512, 1024, 2048, 4096, 8192, 16384] and
-                        block_count > 0 and block_count < 0x10000000 and
-                        name_max > 0 and name_max <= 1022 and
-                        version_major > 0 and version_major <= 10):
-                        
-                        print("\nDetected LittleFS parameters from superblock:")
-                        print(f"  Version: {version_major}.{version_minor}")
-                        print(f"  Block size: {block_size} bytes")
-                        print(f"  Block count: {block_count}")
-                        print(f"  Max filename length: {name_max}")
-                        
-                        return {
-                            'version_major': version_major,
-                            'version_minor': version_minor,
-                            'block_size': block_size,
-                            'block_count': block_count,
-                            'name_max': name_max,
-                            'file_max': file_max,
-                            'attr_max': attr_max,
-                        }
-                except struct.error:
-                    continue
-    
-    except Exception as e:
-        print(f"Warning: Failed to parse LittleFS superblock: {e}")
-    
-    return None
-
-
 def _extract_littlefs(fs_file, fs_size, unpack_path, unpack_dir):
     """Extract LittleFS filesystem."""
     # Read the downloaded filesystem image
