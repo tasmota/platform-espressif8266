@@ -840,65 +840,39 @@ def _parse_littlefs_superblock(fs_data):
 
 
 def _extract_littlefs(fs_file, fs_size, unpack_path, unpack_dir):
-    """Extract LittleFS filesystem with auto-detected parameters."""
+    """Extract LittleFS filesystem."""
+    # Read the downloaded filesystem image
     with open(fs_file, 'rb') as f:
         fs_data = f.read()
 
-    superblock = _parse_littlefs_superblock(fs_data)
-    
-    if superblock:
-        block_size = superblock['block_size']
-        block_count = superblock['block_count']
-        name_max = superblock['name_max']
-        print("\nUsing auto-detected LittleFS parameters")
-    else:
-        print("\nWarning: Could not auto-detect LittleFS parameters, using defaults")
-        block_size = 0x1000
-        block_count = fs_size // block_size
-        name_max = 64
-        print(f"  Block size: {block_size} bytes (default)")
-        print(f"  Block count: {block_count} (calculated)")
-        print(f"  Max filename length: {name_max} (default)")
+    # Use ESP-IDF defaults
+    block_size = 0x1000  # 4KB
+    block_count = fs_size // block_size
 
-    try:
-        fs = LittleFS(
-            block_size=block_size,
-            block_count=block_count,
-            name_max=name_max,
-            mount=False
-        )
-        fs.context.buffer = bytearray(fs_data)
-        fs.mount()
-    except Exception as e:
-        if superblock:
-            print(f"\nWarning: Mount failed with detected parameters: {e}")
-            print("Retrying with default parameters...")
-            block_size = 0x1000
-            block_count = fs_size // block_size
-            name_max = 64
-            fs = LittleFS(
-                block_size=block_size,
-                block_count=block_count,
-                name_max=name_max,
-                mount=False
-            )
-            fs.context.buffer = bytearray(fs_data)
-            fs.mount()
-        else:
-            raise
+    # Create LittleFS instance and mount the image
+    fs = LittleFS(
+        block_size=block_size,
+        block_count=block_count,
+        mount=False
+    )
+    fs.context.buffer = bytearray(fs_data)
+    fs.mount()
 
+    # Extract all files
     file_count = 0
     print("\nExtracted files:")
     for root, dirs, files in fs.walk("/"):
         if not root.endswith("/"):
             root += "/"
 
+        # Create directories
         for dir_name in dirs:
             src_path = root + dir_name
             dst_path = unpack_path / src_path[1:]
             dst_path.mkdir(parents=True, exist_ok=True)
             print(f"  [DIR]  {src_path}")
 
+        # Extract files
         for file_name in files:
             src_path = root + file_name
             dst_path = unpack_path / src_path[1:]
@@ -989,6 +963,57 @@ def _parse_spiffs_config(fs_data, fs_size):
         'use_magic_len': True,
         'aligned_obj_ix_tables': False
     }
+
+
+def _extract_littlefs(fs_file, fs_size, unpack_path, unpack_dir):
+    """Extract LittleFS filesystem."""
+    # Read the downloaded filesystem image
+    with open(fs_file, 'rb') as f:
+        fs_data = f.read()
+
+    # Use ESP-IDF defaults
+    block_size = 0x1000  # 4KB
+    block_count = fs_size // block_size
+
+    # Create LittleFS instance and mount the image
+    fs = LittleFS(
+        block_size=block_size,
+        block_count=block_count,
+        mount=False
+    )
+    fs.context.buffer = bytearray(fs_data)
+    fs.mount()
+
+    # Extract all files
+    file_count = 0
+    print("\nExtracted files:")
+    for root, dirs, files in fs.walk("/"):
+        if not root.endswith("/"):
+            root += "/"
+
+        # Create directories
+        for dir_name in dirs:
+            src_path = root + dir_name
+            dst_path = unpack_path / src_path[1:]
+            dst_path.mkdir(parents=True, exist_ok=True)
+            print(f"  [DIR]  {src_path}")
+
+        # Extract files
+        for file_name in files:
+            src_path = root + file_name
+            dst_path = unpack_path / src_path[1:]
+            dst_path.parent.mkdir(parents=True, exist_ok=True)
+
+            with fs.open(src_path, "rb") as src:
+                file_data = src.read()
+                dst_path.write_bytes(file_data)
+
+            print(f"  [FILE] {src_path} ({len(file_data)} bytes)")
+            file_count += 1
+
+    fs.unmount()
+    print(f"\nSuccessfully extracted {file_count} file(s) to {unpack_dir}")
+    return 0
 
 
 def _extract_spiffs(fs_file, fs_size, unpack_path, unpack_dir):
