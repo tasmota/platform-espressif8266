@@ -17,6 +17,7 @@ import os
 import re
 import semantic_version
 import site
+import socket
 import subprocess
 import sys
 from pathlib import Path
