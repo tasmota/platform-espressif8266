@@ -766,49 +766,96 @@ def _extract_littlefs(fs_file, fs_size, unpack_path, unpack_dir):
     with open(fs_file, 'rb') as f:
         fs_data = f.read()
 
-    # Use ESP-IDF defaults
-    block_size = 0x1000  # 4KB
-    block_count = fs_size // block_size
+    # Try common ESP8266/ESP32 LittleFS configurations
+    configs = [
+        # ESP8266 common configurations
+        {'block_size': 4096, 'block_count': fs_size // 4096, 'read_size': 256, 'prog_size': 256},
+        {'block_size': 8192, 'block_count': fs_size // 8192, 'read_size': 256, 'prog_size': 256},
+        # ESP-IDF defaults
+        {'block_size': 4096, 'block_count': fs_size // 4096, 'read_size': 1, 'prog_size': 1},
+        # Alternative configurations
+        {'block_size': 4096, 'block_count': fs_size // 4096, 'read_size': 128, 'prog_size': 128},
+    ]
 
-    # Create LittleFS instance and mount the image
-    fs = LittleFS(
-        block_size=block_size,
-        block_count=block_count,
-        mount=False
-    )
-    fs.context.buffer = bytearray(fs_data)
-    fs.mount()
+    print("\nAttempting to mount LittleFS with different configurations...")
+    
+    fs = None
+    for i, cfg in enumerate(configs):
+        try:
+            print(f"  Try {i+1}: block_size={cfg['block_size']}, read_size={cfg['read_size']}, prog_size={cfg['prog_size']}")
+            
+            fs = LittleFS(
+                block_size=cfg['block_size'],
+                block_count=cfg['block_count'],
+                read_size=cfg['read_size'],
+                prog_size=cfg['prog_size'],
+                cache_size=cfg['block_size'],
+                lookahead_size=32,
+                block_cycles=500,
+                name_max=64,
+                mount=False
+            )
+            fs.context.buffer = bytearray(fs_data)
+            fs.mount()
+            print(f"  ✓ Successfully mounted with configuration {i+1}")
+            break
+        except Exception as e:
+            print(f"  ✗ Failed: {e}")
+            fs = None
+            continue
+    
+    if fs is None:
+        print("\nError: Could not mount LittleFS with any known configuration.")
+        print("The filesystem may be:")
+        print("  - Empty or unformatted")
+        print("  - Corrupted")
+        print("  - Using a non-standard configuration")
+        return 1
 
     # Extract all files
     file_count = 0
     print("\nExtracted files:")
-    for root, dirs, files in fs.walk("/"):
-        if not root.endswith("/"):
-            root += "/"
+    try:
+        for root, dirs, files in fs.walk("/"):
+            if not root.endswith("/"):
+                root += "/"
 
-        # Create directories
-        for dir_name in dirs:
-            src_path = root + dir_name
-            dst_path = unpack_path / src_path[1:]
-            dst_path.mkdir(parents=True, exist_ok=True)
-            print(f"  [DIR]  {src_path}")
+            # Create directories
+            for dir_name in dirs:
+                src_path = root + dir_name
+                dst_path = unpack_path / src_path[1:]
+                dst_path.mkdir(parents=True, exist_ok=True)
+                print(f"  [DIR]  {src_path}")
 
-        # Extract files
-        for file_name in files:
-            src_path = root + file_name
-            dst_path = unpack_path / src_path[1:]
-            dst_path.parent.mkdir(parents=True, exist_ok=True)
+            # Extract files
+            for file_name in files:
+                src_path = root + file_name
+                dst_path = unpack_path / src_path[1:]
+                dst_path.parent.mkdir(parents=True, exist_ok=True)
 
-            with fs.open(src_path, "rb") as src:
-                file_data = src.read()
-                dst_path.write_bytes(file_data)
+                with fs.open(src_path, "rb") as src:
+                    file_data = src.read()
+                    dst_path.write_bytes(file_data)
 
-            print(f"  [FILE] {src_path} ({len(file_data)} bytes)")
-            file_count += 1
+                print(f"  [FILE] {src_path} ({len(file_data)} bytes)")
+                file_count += 1
 
-    fs.unmount()
-    print(f"\nSuccessfully extracted {file_count} file(s) to {unpack_dir}")
-    return 0
+        fs.unmount()
+        
+        if file_count == 0:
+            print("\nNo files were extracted.")
+            print("The filesystem may be empty or freshly formatted.")
+        else:
+            print(f"\nSuccessfully extracted {file_count} file(s) to {unpack_dir}")
+        
+        return 0
+    except Exception as e:
+        print(f"\nError during extraction: {e}")
+        try:
+            fs.unmount()
+        except:
+            pass
+        return 1
 
 
 def _parse_spiffs_config(fs_data, fs_size):
@@ -886,55 +933,6 @@ def _parse_spiffs_config(fs_data, fs_size):
     }
 
 
-def _extract_littlefs(fs_file, fs_size, unpack_path, unpack_dir):
-    """Extract LittleFS filesystem."""
-    # Read the downloaded filesystem image
-    with open(fs_file, 'rb') as f:
-        fs_data = f.read()
-
-    # Use ESP-IDF defaults
-    block_size = 0x1000  # 4KB
-    block_count = fs_size // block_size
-
-    # Create LittleFS instance and mount the image
-    fs = LittleFS(
-        block_size=block_size,
-        block_count=block_count,
-        mount=False
-    )
-    fs.context.buffer = bytearray(fs_data)
-    fs.mount()
-
-    # Extract all files
-    file_count = 0
-    print("\nExtracted files:")
-    for root, dirs, files in fs.walk("/"):
-        if not root.endswith("/"):
-            root += "/"
-
-        # Create directories
-        for dir_name in dirs:
-            src_path = root + dir_name
-            dst_path = unpack_path / src_path[1:]
-            dst_path.mkdir(parents=True, exist_ok=True)
-            print(f"  [DIR]  {src_path}")
-
-        # Extract files
-        for file_name in files:
-            src_path = root + file_name
-            dst_path = unpack_path / src_path[1:]
-            dst_path.parent.mkdir(parents=True, exist_ok=True)
-
-            with fs.open(src_path, "rb") as src:
-                file_data = src.read()
-                dst_path.write_bytes(file_data)
-
-            print(f"  [FILE] {src_path} ({len(file_data)} bytes)")
-            file_count += 1
-
-    fs.unmount()
-    print(f"\nSuccessfully extracted {file_count} file(s) to {unpack_dir}")
-    return 0
 
 
 def _extract_spiffs(fs_file, fs_size, unpack_path, unpack_dir):
