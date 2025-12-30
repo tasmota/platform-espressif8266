@@ -173,7 +173,12 @@ def build_fs_image(target, source, env):
     source_dir = str(source[0])
     target_file = str(target[0])
     fs_size = env["FS_SIZE"]
-    block_size = env.get("FS_BLOCK", 4096)
+    block_size = env.get("FS_BLOCK", 8192)
+    
+    # Safety check: if block_size is 0 or invalid, use default
+    if not block_size or block_size == 0:
+        print("Warning: FS_BLOCK not found in linker script, using default 8192")
+        block_size = 8192
 
     # Calculate block count
     block_count = fs_size // block_size
