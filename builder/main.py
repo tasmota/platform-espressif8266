@@ -867,20 +867,24 @@ def _parse_spiffs_config(fs_data, fs_size):
     Returns:
         dict: SPIFFS configuration parameters or None
     """
-    # Common ESP32/ESP8266 SPIFFS configurations
+    # Common ESP32/ESP8266 SPIFFS configurations (ordered by likelihood for Tasmota/ESP8266)
     common_configs = [
-        # ESP32/ESP8266 defaults
+        # ESP8266 Tasmota defaults
+        {'page_size': 256, 'block_size': 8192, 'obj_name_len': 32},
+        # ESP32/ESP8266 standard defaults
         {'page_size': 256, 'block_size': 4096, 'obj_name_len': 32},
         # Alternative configurations
-        {'page_size': 256, 'block_size': 8192, 'obj_name_len': 32},
         {'page_size': 512, 'block_size': 4096, 'obj_name_len': 32},
         {'page_size': 256, 'block_size': 4096, 'obj_name_len': 64},
+        {'page_size': 512, 'block_size': 8192, 'obj_name_len': 32},
     ]
     
     print("\nAuto-detecting SPIFFS configuration...")
     
-    for config in common_configs:
+    for i, config in enumerate(common_configs, 1):
         try:
+            print(f"  Try {i}: page_size={config['page_size']}, block_size={config['block_size']}, obj_name_len={config['obj_name_len']}")
+            
             # Try to parse with this configuration
             spiffs_build_config = SpiffsBuildConfig(
                 page_size=config['page_size'],
@@ -904,10 +908,7 @@ def _parse_spiffs_config(fs_data, fs_size):
             spiffs.from_binary(fs_data)
             
             # If we got here without exception, this config works
-            print("  Detected SPIFFS configuration:")
-            print(f"    Page size: {config['page_size']} bytes")
-            print(f"    Block size: {config['block_size']} bytes")
-            print(f"    Max filename length: {config['obj_name_len']}")
+            print(f"  ✓ Successfully detected SPIFFS configuration {i}")
             
             return {
                 'page_size': config['page_size'],
@@ -918,14 +919,15 @@ def _parse_spiffs_config(fs_data, fs_size):
                 'use_magic_len': True,
                 'aligned_obj_ix_tables': False
             }
-        except Exception:
+        except Exception as e:
+            print(f"  ✗ Failed: {e}")
             continue
     
     # If no config worked, return defaults
-    print("  Could not auto-detect configuration, using ESP32/ESP8266 defaults")
+    print("  Could not auto-detect configuration, using ESP8266 defaults")
     return {
         'page_size': 256,
-        'block_size': 4096,
+        'block_size': 8192,
         'obj_name_len': 32,
         'meta_len': 4,
         'use_magic': True,
@@ -990,31 +992,48 @@ def _extract_fatfs(fs_file, unpack_path, unpack_dir):
 
     from fatfs import is_esp32_wl_image, extract_fat_from_esp32_wl
     
-    sector_size = 4096
+    # Try common sector sizes for ESP8266/ESP32
+    sector_sizes_to_try = [4096, 512, 1024, 2048]
     
-    if is_esp32_wl_image(fs_data, sector_size):
-        print("Detected Wear Leveling layer, extracting FAT data...")
-        fat_data = extract_fat_from_esp32_wl(fs_data, sector_size)
-        if fat_data is None:
-            print("Error: Failed to extract FAT data from wear-leveling image")
-            return 1
-        fs_data = bytearray(fat_data)
-        print(f"  Extracted FAT data: {len(fs_data)} bytes")
-    else:
-        print("No Wear Leveling layer detected, treating as raw FAT image...")
+    print("\nAttempting to detect FAT filesystem configuration...")
+    
+    wl_detected = False
+    for sector_size in sector_sizes_to_try:
+        if is_esp32_wl_image(fs_data, sector_size):
+            print(f"  ✓ Detected Wear Leveling layer with sector_size={sector_size}")
+            fat_data = extract_fat_from_esp32_wl(fs_data, sector_size)
+            if fat_data is None:
+                print("  ✗ Failed to extract FAT data from wear-leveling image")
+                continue
+            fs_data = bytearray(fat_data)
+            print(f"  Extracted FAT data: {len(fs_data)} bytes")
+            wl_detected = True
+            break
+    
+    if not wl_detected:
+        print("  No Wear Leveling layer detected, treating as raw FAT image...")
 
+    # Read sector size from FAT boot sector
     sector_size = int.from_bytes(fs_data[0x0B:0x0D], byteorder='little')
 
     if sector_size not in [512, 1024, 2048, 4096]:
         print(f"Error: Invalid sector size {sector_size}. Must be 512, 1024, 2048, or 4096")
+        print("The filesystem may be corrupted or not a valid FAT filesystem")
         return 1
+
+    print(f"  Detected sector size: {sector_size} bytes")
 
     from fatfs import RamDisk, create_extended_partition
     fs_size_adjusted = len(fs_data)
     sector_count = fs_size_adjusted // sector_size
-    disk = RamDisk(fs_data, sector_size=sector_size, sector_count=sector_count)
-    partition = create_extended_partition(disk)
-    partition.mount()
+    
+    try:
+        disk = RamDisk(fs_data, sector_size=sector_size, sector_count=sector_count)
+        partition = create_extended_partition(disk)
+        partition.mount()
+    except Exception as e:
+        print(f"Error: Failed to mount FAT filesystem: {e}")
+        return 1
 
     print("\nExtracting files:\n")
     extracted_count = 0
@@ -1028,7 +1047,7 @@ def _extract_fatfs(fs_file, unpack_path, unpack_dir):
             try:
                 data = partition.read_file(src_file)
                 dst_file.write_bytes(data)
-                print(f"  FILE: {src_file} ({len(data)} bytes)")
+                print(f"  [FILE] {src_file} ({len(data)} bytes)")
                 extracted_count += 1
             except Exception as e:
                 print(f"  Warning: Failed to extract {src_file}: {e}")
