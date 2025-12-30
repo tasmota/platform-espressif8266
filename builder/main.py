@@ -197,16 +197,28 @@ def build_fs_image(target, source, env):
         disk_version = (2 << 16) | 0
 
     # Get read_size and prog_size from board config or use ESP8266 Arduino defaults
-    # ESP8266 Arduino framework uses read_size=64, prog_size=64
-    # ESP8266 Tasmota framework uses read_size=256, prog_size=256
-    read_size = 256
-    prog_size = 256
+    # ESP8266 Arduino framework uses: read_size=64, prog_size=64, cache_size=64, lookahead_size=64
+    # name_max=0 means use LFS_NAME_MAX default (255), block_cycles=16
+    read_size = 64
+    prog_size = 64
+    cache_size = 64
+    lookahead_size = 64
+    name_max = 0  # 0 = use LFS_NAME_MAX default (255)
+    block_cycles = 16
     
     for section in ["common", "env:" + env["PIOENV"]]:
         if config.has_option(section, "board_build.littlefs_read_size"):
             read_size = int(config.get(section, "board_build.littlefs_read_size"))
         if config.has_option(section, "board_build.littlefs_prog_size"):
             prog_size = int(config.get(section, "board_build.littlefs_prog_size"))
+        if config.has_option(section, "board_build.littlefs_cache_size"):
+            cache_size = int(config.get(section, "board_build.littlefs_cache_size"))
+        if config.has_option(section, "board_build.littlefs_lookahead_size"):
+            lookahead_size = int(config.get(section, "board_build.littlefs_lookahead_size"))
+        if config.has_option(section, "board_build.littlefs_name_max"):
+            name_max = int(config.get(section, "board_build.littlefs_name_max"))
+        if config.has_option(section, "board_build.littlefs_block_cycles"):
+            block_cycles = int(config.get(section, "board_build.littlefs_block_cycles"))
 
     try:
         fs = LittleFS(
@@ -214,10 +226,10 @@ def build_fs_image(target, source, env):
             block_count=block_count,
             read_size=read_size,
             prog_size=prog_size,
-            cache_size=block_size,
-            lookahead_size=32,
-            block_cycles=500,
-            name_max=64,
+            cache_size=cache_size,
+            lookahead_size=lookahead_size,
+            block_cycles=block_cycles,
+            name_max=name_max,
             disk_version=disk_version,
             mount=True
         )
