@@ -768,9 +768,10 @@ def _extract_littlefs(fs_file, fs_size, unpack_path, unpack_dir):
 
     # Try common ESP8266/ESP32 LittleFS configurations
     configs = [
-        # ESP8266 common configurations
-        {'block_size': 4096, 'block_count': fs_size // 4096, 'read_size': 256, 'prog_size': 256},
+        # ESP8266 Tasmota default (most common)
         {'block_size': 8192, 'block_count': fs_size // 8192, 'read_size': 256, 'prog_size': 256},
+        # ESP8266 alternative configurations
+        {'block_size': 4096, 'block_count': fs_size // 4096, 'read_size': 256, 'prog_size': 256},
         # ESP-IDF defaults
         {'block_size': 4096, 'block_count': fs_size // 4096, 'read_size': 1, 'prog_size': 1},
         # Alternative configurations
