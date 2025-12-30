@@ -1072,6 +1072,17 @@ env.AddPlatformTarget(
     "uploadfsota", target_firm, upload_actions, "Upload Filesystem Image OTA")
 
 
+# Target: Download Filesystem (auto-detect type)
+env.AddPlatformTarget(
+    "download_fs",
+    None,
+    [
+        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
+        env.VerboseAction(download_fs_action, "Downloading and extracting filesystem")
+    ],
+    "Download and extract filesystem from device",
+)
+
 #
 # Target: Erase Flash and Upload
 #
@@ -1099,17 +1110,6 @@ env.AddPlatformTarget(
         env.VerboseAction("$ERASECMD", "Erasing...")
     ],
     "Erase Flash",
-)
-
-# Target: Download Filesystem (auto-detect type)
-env.AddPlatformTarget(
-    "download_fs",
-    None,
-    [
-        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
-        env.VerboseAction(download_fs_action, "Downloading and extracting filesystem")
-    ],
-    "Download and extract filesystem from device",
 )
 
 
