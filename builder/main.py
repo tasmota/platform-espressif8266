@@ -197,8 +197,9 @@ def build_fs_image(target, source, env):
 
     # Get read_size and prog_size from board config or use ESP8266 Arduino defaults
     # ESP8266 Arduino framework uses read_size=64, prog_size=64
-    read_size = 64
-    prog_size = 64
+    # ESP8266 Tasmota framework uses read_size=256, prog_size=256
+    read_size = 256
+    prog_size = 256
     
     for section in ["common", "env:" + env["PIOENV"]]:
         if config.has_option(section, "board_build.littlefs_read_size"):
