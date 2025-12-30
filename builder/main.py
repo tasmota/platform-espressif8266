@@ -195,12 +195,23 @@ def build_fs_image(target, source, env):
         print(f"Warning: Invalid littlefs version '{disk_version_str}', using default 2.1")
         disk_version = (2 << 16) | 1
 
+    # Get read_size and prog_size from board config or use ESP8266 Arduino defaults
+    # ESP8266 Arduino framework uses read_size=64, prog_size=64
+    read_size = 64
+    prog_size = 64
+    
+    for section in ["common", "env:" + env["PIOENV"]]:
+        if config.has_option(section, "board_build.littlefs_read_size"):
+            read_size = int(config.get(section, "board_build.littlefs_read_size"))
+        if config.has_option(section, "board_build.littlefs_prog_size"):
+            prog_size = int(config.get(section, "board_build.littlefs_prog_size"))
+
     try:
         fs = LittleFS(
             block_size=block_size,
             block_count=block_count,
-            read_size=1,
-            prog_size=1,
+            read_size=read_size,
+            prog_size=prog_size,
             cache_size=block_size,
             lookahead_size=32,
             block_cycles=500,
