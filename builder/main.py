@@ -20,6 +20,7 @@ import sys
 import struct
 import shutil
 import subprocess
+import importlib.util
 from os.path import join, isfile
 from pathlib import Path
 from penv_setup import setup_python_environment
@@ -29,9 +30,6 @@ from fatfs import Partition, RamDisk, create_extended_partition
 from SCons.Script import (
     ARGUMENTS, COMMAND_LINE_TARGETS, AlwaysBuild, Builder, Default,
     DefaultEnvironment)
-
-# Import SPIFFS generator from local module
-import importlib.util
 
 # Initialize environment and configuration
 env = DefaultEnvironment()
