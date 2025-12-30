@@ -198,12 +198,13 @@ def build_fs_image(target, source, env):
 
     # Get read_size and prog_size from board config or use ESP8266 Arduino defaults
     # ESP8266 Arduino framework uses: read_size=64, prog_size=64, cache_size=64, lookahead_size=64
-    # name_max=0 means use LFS_NAME_MAX default (255), block_cycles=16
+    # name_max=0 means use LFS_NAME_MAX default which is compiled as 32 in ESP8266 Arduino!
+    # block_cycles=16
     read_size = 64
     prog_size = 64
     cache_size = 64
     lookahead_size = 64
-    name_max = 0  # 0 = use LFS_NAME_MAX default (255)
+    name_max = 32  # ESP8266 Arduino compiles with LFS_NAME_MAX=32
     block_cycles = 16
     
     for section in ["common", "env:" + env["PIOENV"]]:
