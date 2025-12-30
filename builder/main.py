@@ -26,6 +26,7 @@ from pathlib import Path
 from penv_setup import setup_python_environment
 from littlefs import LittleFS
 from fatfs import Partition, RamDisk, create_extended_partition
+from platformio.project.helpers import get_project_dir
 
 from SCons.Script import (
     ARGUMENTS, COMMAND_LINE_TARGETS, AlwaysBuild, Builder, Default,
@@ -577,7 +578,6 @@ def _get_unpack_dir(env):
 
 def _prepare_unpack_dir(unpack_dir):
     """Prepare the unpack directory by removing old content and creating fresh directory."""
-    from platformio.project.helpers import get_project_dir
     unpack_path = Path(get_project_dir()) / unpack_dir
     if unpack_path.exists():
         shutil.rmtree(unpack_path)
@@ -606,7 +606,6 @@ def _download_fs_image(env):
     print(f"  Size: {hex(fs_size)} ({fs_size} bytes)")
 
     # Download filesystem image
-    from platformio.project.helpers import get_project_dir
     build_dir = Path(get_project_dir()) / ".pio" / "build" / env["PIOENV"]
     build_dir.mkdir(parents=True, exist_ok=True)
     fs_file = build_dir / f"downloaded_fs_{hex(fs_start)}_{hex(fs_size)}.bin"
