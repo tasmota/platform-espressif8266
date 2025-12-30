@@ -518,6 +518,37 @@ env.Append(
 )
 
 
+#
+# Target: Build executable and linkable firmware or file system image
+#
+
+target_elf = None
+if "nobuild" in COMMAND_LINE_TARGETS:
+    target_elf = join("$BUILD_DIR", "${PROGNAME}.elf")
+    if set(["uploadfs", "uploadfsota"]) & set(COMMAND_LINE_TARGETS):
+        fetch_fs_size(env)
+        target_firm = join("$BUILD_DIR", "${ESP8266_FS_IMAGE_NAME}.bin")
+    else:
+        target_firm = join("$BUILD_DIR", "${PROGNAME}.bin")
+else:
+    target_elf = env.BuildProgram()
+    if set(["buildfs", "uploadfs", "uploadfsota"]) & set(COMMAND_LINE_TARGETS):
+        if filesystem not in ("littlefs", "spiffs", "fatfs"):
+            sys.stderr.write("Filesystem %s is not supported!\n" % filesystem)
+            env.Exit(1)
+        target_firm = env.DataToBin(
+            join("$BUILD_DIR", "${ESP8266_FS_IMAGE_NAME}"), "$PROJECT_DATA_DIR")
+        env.NoCache(target_firm)
+        AlwaysBuild(target_firm)
+    else:
+        target_firm = env.ElfToBin(
+            join("$BUILD_DIR", "${PROGNAME}"), target_elf)
+        env.Depends(target_firm, "checkprogsize")
+
+env.AddPlatformTarget("buildfs", target_firm, target_firm, "Build Filesystem Image")
+AlwaysBuild(env.Alias("nobuild", target_firm))
+target_buildprog = env.Alias("buildprog", target_firm, target_firm)
+
 # update max upload size based on CSV file
 if env.get("PIOMAINPROG"):
     env.AddPreAction(
