@@ -179,7 +179,8 @@ def build_fs_image(target, source, env):
     block_count = fs_size // block_size
 
     # Get disk version from board config or project options
-    disk_version_str = "2.1"
+    # ESP8266 Tasmoat Arduino framework uses LittleFS v2.0
+    disk_version_str = "2.0"
     
     for section in ["common", "env:" + env["PIOENV"]]:
         if config.has_option(section, "board_build.littlefs_version"):
@@ -192,8 +193,8 @@ def build_fs_image(target, source, env):
         minor = int(version_parts[1]) if len(version_parts) > 1 else 0
         disk_version = (major << 16) | minor
     except (ValueError, IndexError):
-        print(f"Warning: Invalid littlefs version '{disk_version_str}', using default 2.1")
-        disk_version = (2 << 16) | 1
+        print(f"Warning: Invalid littlefs version '{disk_version_str}', using default 2.0")
+        disk_version = (2 << 16) | 0
 
     # Get read_size and prog_size from board config or use ESP8266 Arduino defaults
     # ESP8266 Arduino framework uses read_size=64, prog_size=64
