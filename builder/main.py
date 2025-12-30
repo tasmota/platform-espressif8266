@@ -196,30 +196,15 @@ def build_fs_image(target, source, env):
         print(f"Warning: Invalid littlefs version '{disk_version_str}', using default 2.0")
         disk_version = (2 << 16) | 0
 
-    # Get read_size and prog_size from board config or use ESP8266 Arduino defaults
-    # ESP8266 Arduino framework uses: read_size=64, prog_size=64, cache_size=64, lookahead_size=64
-    # name_max=0 means use LFS_NAME_MAX default which is compiled as 32 in ESP8266 Arduino!
-    # block_cycles=16
+    # ESP8266 Arduino framework uses: read_size=64, prog_size=64, cache_size=64, lookahead_size=64, block_cycles=16
+    # ESP8266 Arduino compiles with LFS_NAME_MAX=32
+    # name_max=32 -> LFS_NAME_MAX=32
     read_size = 64
     prog_size = 64
     cache_size = 64
     lookahead_size = 64
-    name_max = 32  # ESP8266 Arduino compiles with LFS_NAME_MAX=32
+    name_max = 32
     block_cycles = 16
-    
-    for section in ["common", "env:" + env["PIOENV"]]:
-        if config.has_option(section, "board_build.littlefs_read_size"):
-            read_size = int(config.get(section, "board_build.littlefs_read_size"))
-        if config.has_option(section, "board_build.littlefs_prog_size"):
-            prog_size = int(config.get(section, "board_build.littlefs_prog_size"))
-        if config.has_option(section, "board_build.littlefs_cache_size"):
-            cache_size = int(config.get(section, "board_build.littlefs_cache_size"))
-        if config.has_option(section, "board_build.littlefs_lookahead_size"):
-            lookahead_size = int(config.get(section, "board_build.littlefs_lookahead_size"))
-        if config.has_option(section, "board_build.littlefs_name_max"):
-            name_max = int(config.get(section, "board_build.littlefs_name_max"))
-        if config.has_option(section, "board_build.littlefs_block_cycles"):
-            block_cycles = int(config.get(section, "board_build.littlefs_block_cycles"))
 
     try:
         fs = LittleFS(
@@ -282,18 +267,6 @@ def build_spiffs_image(target, source, env):
     use_magic = True
     use_magic_len = True
     aligned_obj_ix_tables = False
-
-    for section in ["common", "env:" + env["PIOENV"]]:
-        if config.has_option(section, "board_build.spiffs.obj_name_len"):
-            obj_name_len = int(config.get(section, "board_build.spiffs.obj_name_len"))
-        if config.has_option(section, "board_build.spiffs.meta_len"):
-            meta_len = int(config.get(section, "board_build.spiffs.meta_len"))
-        if config.has_option(section, "board_build.spiffs.use_magic"):
-            use_magic = config.getboolean(section, "board_build.spiffs.use_magic")
-        if config.has_option(section, "board_build.spiffs.use_magic_len"):
-            use_magic_len = config.getboolean(section, "board_build.spiffs.use_magic_len")
-        if config.has_option(section, "board_build.spiffs.aligned_obj_ix_tables"):
-            aligned_obj_ix_tables = config.getboolean(section, "board_build.spiffs.aligned_obj_ix_tables")
 
     try:
         spiffs_build_config = SpiffsBuildConfig(
@@ -502,7 +475,6 @@ env.Replace(
     ERASEFLAGS=["--chip", "esp8266", "--port", '"$UPLOAD_PORT"'],
     ERASETOOL=uploader_path,
     ERASECMD='$ERASETOOL $ERASEFLAGS erase-flash',
-
     PROGSUFFIX=".elf"
 )
 
@@ -546,37 +518,6 @@ env.Append(
 )
 
 
-#
-# Target: Build executable and linkable firmware or file system image
-#
-
-target_elf = None
-if "nobuild" in COMMAND_LINE_TARGETS:
-    target_elf = join("$BUILD_DIR", "${PROGNAME}.elf")
-    if set(["uploadfs", "uploadfsota"]) & set(COMMAND_LINE_TARGETS):
-        fetch_fs_size(env)
-        target_firm = join("$BUILD_DIR", "${ESP8266_FS_IMAGE_NAME}.bin")
-    else:
-        target_firm = join("$BUILD_DIR", "${PROGNAME}.bin")
-else:
-    target_elf = env.BuildProgram()
-    if set(["buildfs", "uploadfs", "uploadfsota"]) & set(COMMAND_LINE_TARGETS):
-        if filesystem not in ("littlefs", "spiffs", "fatfs"):
-            sys.stderr.write("Filesystem %s is not supported!\n" % filesystem)
-            env.Exit(1)
-        target_firm = env.DataToBin(
-            join("$BUILD_DIR", "${ESP8266_FS_IMAGE_NAME}"), "$PROJECT_DATA_DIR")
-        env.NoCache(target_firm)
-        AlwaysBuild(target_firm)
-    else:
-        target_firm = env.ElfToBin(
-            join("$BUILD_DIR", "${PROGNAME}"), target_elf)
-        env.Depends(target_firm, "checkprogsize")
-
-env.AddPlatformTarget("buildfs", target_firm, target_firm, "Build Filesystem Image")
-AlwaysBuild(env.Alias("nobuild", target_firm))
-target_buildprog = env.Alias("buildprog", target_firm, target_firm)
-
 # update max upload size based on CSV file
 if env.get("PIOMAINPROG"):
     env.AddPreAction(
@@ -584,131 +525,6 @@ if env.get("PIOMAINPROG"):
         env.VerboseAction(
             lambda source, target, env: _update_max_upload_size(env),
             "Retrieving maximum program size $SOURCE"))
-
-#
-# Target: Print binary size
-#
-
-target_size = env.AddPlatformTarget(
-    "size",
-    target_elf,
-    env.VerboseAction("$SIZEPRINTCMD", "Calculating size $SOURCE"),
-    "Program Size",
-    "Calculate program size",
-)
-
-#
-# Target: Upload firmware or filesystem image
-#
-
-upload_protocol = env.subst("$UPLOAD_PROTOCOL") or "esptool"
-upload_actions = []
-
-# Compatibility with old OTA configurations
-if (upload_protocol != "espota"
-        and re.match(r"\"?((([0-9]{1,3}\.){3}[0-9]{1,3})|[^\\/]+\.local)\"?$",
-                     env.get("UPLOAD_PORT", ""))):
-    upload_protocol = "espota"
-    sys.stderr.write(
-        "Warning! We have just detected `upload_port` as IP address or host "
-        "name of ESP device. `upload_protocol` is switched to `espota`.\n"
-        "Please specify `upload_protocol = espota` in `platformio.ini` "
-        "project configuration file.\n")
-
-if upload_protocol == "espota":
-    if not env.subst("$UPLOAD_PORT"):
-        sys.stderr.write(
-            "Error: Please specify IP address or host name of ESP device "
-            "using `upload_port` for build environment or use "
-            "global `--upload-port` option.\n"
-            "See https://docs.platformio.org/page/platforms/"
-            "espressif8266.html#over-the-air-ota-update\n")
-    env.Replace(
-        UPLOADER=join(
-            platform.get_package_dir("framework-arduinoespressif8266") or "",
-            "tools", "espota.py"),
-        UPLOADERFLAGS=["--debug", "--progress", "-i", "$UPLOAD_PORT"],
-        UPLOADCMD='"$PYTHONEXE" "$UPLOADER" $UPLOADERFLAGS -f $SOURCE'
-    )
-    if set(["uploadfs", "uploadfsota"]) & set(COMMAND_LINE_TARGETS):
-        env.Append(UPLOADERFLAGS=["-s"])
-    upload_actions = [env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")]
-
-elif upload_protocol == "esptool":
-    env.Replace(
-        UPLOADER=uploader_path,
-        UPLOADERFLAGS=[
-            "--chip", "esp8266",
-            "--port", '"$UPLOAD_PORT"',
-            "--baud", "$UPLOAD_SPEED",
-            "write-flash"
-        ],
-        UPLOADCMD='$UPLOADER $UPLOADERFLAGS 0x0 $SOURCE'
-    )
-    for image in env.get("FLASH_EXTRA_IMAGES", []):
-        env.Append(UPLOADERFLAGS=[image[0], env.subst(image[1])])
-
-    if "uploadfs" in COMMAND_LINE_TARGETS:
-        env.Replace(
-            UPLOADERFLAGS=[
-                "--chip", "esp8266",
-                "--port", '"$UPLOAD_PORT"',
-                "--baud", "$UPLOAD_SPEED",
-                "write-flash",
-                "$FS_START"
-            ],
-            UPLOADCMD='$UPLOADER $UPLOADERFLAGS $SOURCE',
-        )
-
-    env.Prepend(
-        UPLOADERFLAGS=get_esptoolpy_reset_flags(env.subst("$UPLOAD_RESETMETHOD"))
-    )
-
-    upload_actions = [
-        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
-        env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")
-    ]
-
-# custom upload tool
-elif upload_protocol == "custom":
-    upload_actions = [env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")]
-
-else:
-    sys.stderr.write("Warning! Unknown upload protocol %s\n" % upload_protocol)
-
-env.AddPlatformTarget("upload", target_firm, upload_actions, "Upload")
-env.AddPlatformTarget("uploadfs", target_firm, upload_actions, "Upload Filesystem Image")
-env.AddPlatformTarget(
-    "uploadfsota", target_firm, upload_actions, "Upload Filesystem Image OTA")
-
-#
-# Target: Erase Flash and Upload
-#
-
-env.AddPlatformTarget(
-    "erase_upload",
-    target_firm,
-    [
-        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
-        env.VerboseAction("$ERASECMD", "Erasing..."),
-        env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")
-    ],
-    "Erase Flash and Upload",
-)
-
-#
-# Target: Erase Flash
-#
-
-env.AddPlatformTarget(
-    "erase",
-    None,
-    [
-        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
-        env.VerboseAction("$ERASECMD", "Erasing...")
-    ],
-    "Erase Flash",
-)
 
 
 #
@@ -824,10 +640,10 @@ def _extract_littlefs(fs_file, fs_size, unpack_path, unpack_dir):
             )
             fs.context.buffer = bytearray(fs_data)
             fs.mount()
-            print(f"  ✓ Successfully mounted with configuration {i+1}")
+            print(f"  Successfully mounted with configuration {i+1}")
             break
         except Exception as e:
-            print(f"  ✗ Failed: {e}")
+            print(f"  Failed: {e}")
             fs = None
             continue
     
@@ -934,7 +750,7 @@ def _parse_spiffs_config(fs_data, fs_size):
             spiffs.from_binary(fs_data)
             
             # If we got here without exception, this config works
-            print(f"  ✓ Successfully detected SPIFFS configuration {i}")
+            print(f"  Successfully detected SPIFFS configuration {i}")
             
             return {
                 'page_size': config['page_size'],
@@ -946,7 +762,7 @@ def _parse_spiffs_config(fs_data, fs_size):
                 'aligned_obj_ix_tables': False
             }
         except Exception as e:
-            print(f"  ✗ Failed: {e}")
+            print(f"  Failed: {e}")
             continue
     
     # If no config worked, return defaults
@@ -960,8 +776,6 @@ def _parse_spiffs_config(fs_data, fs_size):
         'use_magic_len': True,
         'aligned_obj_ix_tables': False
     }
-
-
 
 
 def _extract_spiffs(fs_file, fs_size, unpack_path, unpack_dir):
@@ -1026,10 +840,10 @@ def _extract_fatfs(fs_file, unpack_path, unpack_dir):
     wl_detected = False
     for sector_size in sector_sizes_to_try:
         if is_esp32_wl_image(fs_data, sector_size):
-            print(f"  ✓ Detected Wear Leveling layer with sector_size={sector_size}")
+            print(f"  Detected Wear Leveling layer with sector_size={sector_size}")
             fat_data = extract_fat_from_esp32_wl(fs_data, sector_size)
             if fat_data is None:
-                print("  ✗ Failed to extract FAT data from wear-leveling image")
+                print("  Failed to extract FAT data from wear-leveling image")
                 continue
             fs_data = bytearray(fat_data)
             print(f"  Extracted FAT data: {len(fs_data)} bytes")
@@ -1128,6 +942,133 @@ def download_fs_action(target, source, env):
         print(f"Error: {e}")
         return 1
 
+
+#
+# Target: Print binary size
+#
+
+target_size = env.AddPlatformTarget(
+    "size",
+    target_elf,
+    env.VerboseAction("$SIZEPRINTCMD", "Calculating size $SOURCE"),
+    "Program Size",
+    "Calculate program size",
+)
+
+
+#
+# Target: Upload firmware or filesystem image
+#
+
+upload_protocol = env.subst("$UPLOAD_PROTOCOL") or "esptool"
+upload_actions = []
+
+# Compatibility with old OTA configurations
+if (upload_protocol != "espota"
+        and re.match(r"\"?((([0-9]{1,3}\.){3}[0-9]{1,3})|[^\\/]+\.local)\"?$",
+                     env.get("UPLOAD_PORT", ""))):
+    upload_protocol = "espota"
+    sys.stderr.write(
+        "Warning! We have just detected `upload_port` as IP address or host "
+        "name of ESP device. `upload_protocol` is switched to `espota`.\n"
+        "Please specify `upload_protocol = espota` in `platformio.ini` "
+        "project configuration file.\n")
+
+if upload_protocol == "espota":
+    if not env.subst("$UPLOAD_PORT"):
+        sys.stderr.write(
+            "Error: Please specify IP address or host name of ESP device "
+            "using `upload_port` for build environment or use "
+            "global `--upload-port` option.\n"
+            "See https://docs.platformio.org/page/platforms/"
+            "espressif8266.html#over-the-air-ota-update\n")
+    env.Replace(
+        UPLOADER=join(
+            platform.get_package_dir("framework-arduinoespressif8266") or "",
+            "tools", "espota.py"),
+        UPLOADERFLAGS=["--debug", "--progress", "-i", "$UPLOAD_PORT"],
+        UPLOADCMD='"$PYTHONEXE" "$UPLOADER" $UPLOADERFLAGS -f $SOURCE'
+    )
+    if set(["uploadfs", "uploadfsota"]) & set(COMMAND_LINE_TARGETS):
+        env.Append(UPLOADERFLAGS=["-s"])
+    upload_actions = [env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")]
+
+elif upload_protocol == "esptool":
+    env.Replace(
+        UPLOADER=uploader_path,
+        UPLOADERFLAGS=[
+            "--chip", "esp8266",
+            "--port", '"$UPLOAD_PORT"',
+            "--baud", "$UPLOAD_SPEED",
+            "write-flash"
+        ],
+        UPLOADCMD='$UPLOADER $UPLOADERFLAGS 0x0 $SOURCE'
+    )
+    for image in env.get("FLASH_EXTRA_IMAGES", []):
+        env.Append(UPLOADERFLAGS=[image[0], env.subst(image[1])])
+
+    if "uploadfs" in COMMAND_LINE_TARGETS:
+        env.Replace(
+            UPLOADERFLAGS=[
+                "--chip", "esp8266",
+                "--port", '"$UPLOAD_PORT"',
+                "--baud", "$UPLOAD_SPEED",
+                "write-flash",
+                "$FS_START"
+            ],
+            UPLOADCMD='$UPLOADER $UPLOADERFLAGS $SOURCE',
+        )
+
+    env.Prepend(
+        UPLOADERFLAGS=get_esptoolpy_reset_flags(env.subst("$UPLOAD_RESETMETHOD"))
+    )
+
+    upload_actions = [
+        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
+        env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")
+    ]
+
+# custom upload tool
+elif upload_protocol == "custom":
+    upload_actions = [env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")]
+
+else:
+    sys.stderr.write("Warning! Unknown upload protocol %s\n" % upload_protocol)
+
+env.AddPlatformTarget("upload", target_firm, upload_actions, "Upload")
+env.AddPlatformTarget("uploadfs", target_firm, upload_actions, "Upload Filesystem Image")
+env.AddPlatformTarget(
+    "uploadfsota", target_firm, upload_actions, "Upload Filesystem Image OTA")
+
+
+#
+# Target: Erase Flash and Upload
+#
+
+env.AddPlatformTarget(
+    "erase_upload",
+    target_firm,
+    [
+        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
+        env.VerboseAction("$ERASECMD", "Erasing..."),
+        env.VerboseAction("$UPLOADCMD", "Uploading $SOURCE")
+    ],
+    "Erase Flash and Upload",
+)
+
+#
+# Target: Erase Flash
+#
+
+env.AddPlatformTarget(
+    "erase",
+    None,
+    [
+        env.VerboseAction(BeforeUpload, "Looking for upload port..."),
+        env.VerboseAction("$ERASECMD", "Erasing...")
+    ],
+    "Erase Flash",
+)
 
 # Target: Download Filesystem (auto-detect type)
 env.AddPlatformTarget(
