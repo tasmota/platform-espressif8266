@@ -410,31 +410,6 @@ def build_fs_router(target, source, env):
         return 1
 
 
-def fetch_fs_size(env):
-    ldsizes = _parse_ld_sizes(env.GetActualLDScript())
-    for key in ldsizes:
-        if key.startswith("fs_"):
-            env[key.upper()] = ldsizes[key]
-
-    assert all([
-        k in env
-        for k in ["FS_START", "FS_END", "FS_PAGE", "FS_BLOCK"]
-    ])
-
-    # esptool flash starts from 0
-    for k in ("FS_START", "FS_END"):
-        _value = 0
-        if env[k] < 0x40300000:
-            _value = env[k] & 0xFFFFF
-        elif env[k] < 0x411FB000:
-            _value = env[k] & 0xFFFFFF
-            _value -= 0x200000  # correction
-        else:
-            _value = env[k] & 0xFFFFFF
-            _value += 0xE00000  # correction
-
-        env[k] = _value
-
 def __fetch_fs_size(target, source, env):
     fetch_fs_size(env)
     return (target, source)
