@@ -586,9 +586,7 @@ def _prepare_unpack_dir(unpack_dir):
 
 
 def _download_fs_image(env):
-    """Download filesystem image from ESP8266 device."""
-    from platformio.util import get_serial_ports
-    
+    """Download filesystem image from ESP8266 device."""    
     # Ensure upload port is set
     if not env.subst("$UPLOAD_PORT"):
         env.AutodetectUploadPort()
