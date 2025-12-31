@@ -182,7 +182,7 @@ def build_fs_image(target, source, env):
     block_count = fs_size // block_size
 
     # Get disk version from board config or project options
-    # ESP8266 Tasmoat Arduino framework uses LittleFS v2.0
+    # ESP8266 Tasmota Arduino framework uses LittleFS v2.0
     disk_version_str = "2.0"
     
     for section in ["common", "env:" + env["PIOENV"]]:
@@ -318,6 +318,17 @@ def build_fatfs_image(target, source, env):
     target_file = str(target[0])
     fs_size = env["FS_SIZE"]
     sector_size = env.get("FS_SECTOR", 4096)
+
+    # Calculate wear-leveling overhead
+    # ESP32 WL uses ~2 sectors for state + additional overhead
+    wl_sectors_overhead = 2 + (fs_size // sector_size) // 16
+    fat_sectors = (fs_size // sector_size) - wl_sectors_overhead
+    fat_size = fat_sectors * sector_size
+    
+    wl_info = {
+        'fat_size': fat_size,
+        'fat_sectors': fat_sectors
+    }
 
     fat_fs_size = wl_info['fat_size']
     sector_count = wl_info['fat_sectors']
@@ -662,7 +673,7 @@ def _extract_littlefs(fs_file, fs_size, unpack_path, unpack_dir):
                 cache_size=cfg['block_size'],
                 lookahead_size=32,
                 block_cycles=500,
-                name_max=64,
+                name_max=32,
                 mount=False
             )
             fs.context.buffer = bytearray(fs_data)
@@ -723,7 +734,7 @@ def _extract_littlefs(fs_file, fs_size, unpack_path, unpack_dir):
         print(f"\nError during extraction: {e}")
         try:
             fs.unmount()
-        except:
+        except Exception:
             pass
         return 1
 
@@ -812,24 +823,24 @@ def _extract_spiffs(fs_file, fs_size, unpack_path, unpack_dir):
         fs_data = f.read()
 
     # Auto-detect SPIFFS configuration
-    config = _parse_spiffs_config(fs_data, fs_size)
+    spiffs_config = _parse_spiffs_config(fs_data, fs_size)
     
     # Create SPIFFS build configuration
     spiffs_build_config = SpiffsBuildConfig(
-        page_size=config['page_size'],
+        page_size=spiffs_config['page_size'],
         page_ix_len=2,
-        block_size=config['block_size'],
+        block_size=spiffs_config['block_size'],
         block_ix_len=2,
-        meta_len=config['meta_len'],
-        obj_name_len=config['obj_name_len'],
+        meta_len=spiffs_config['meta_len'],
+        obj_name_len=spiffs_config['obj_name_len'],
         obj_id_len=2,
         span_ix_len=2,
         packed=True,
         aligned=True,
         endianness='little',
-        use_magic=config['use_magic'],
-        use_magic_len=config['use_magic_len'],
-        aligned_obj_ix_tables=config['aligned_obj_ix_tables']
+        use_magic=spiffs_config['use_magic'],
+        use_magic_len=spiffs_config['use_magic_len'],
+        aligned_obj_ix_tables=spiffs_config['aligned_obj_ix_tables']
     )
 
     # Create SPIFFS filesystem and parse the image
@@ -890,7 +901,6 @@ def _extract_fatfs(fs_file, unpack_path, unpack_dir):
 
     print(f"  Detected sector size: {sector_size} bytes")
 
-    from fatfs import RamDisk, create_extended_partition
     fs_size_adjusted = len(fs_data)
     sector_count = fs_size_adjusted // sector_size
     
