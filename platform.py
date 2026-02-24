@@ -66,8 +66,7 @@ COMMON_PACKAGES = [
 
 CHECK_PACKAGES = [
     "tool-cppcheck",
-    "tool-clangtidy",
-    "tool-pvs-studio"
+    "tool-clangtidy"
 ]
 
 # System-specific configuration
