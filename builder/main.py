@@ -23,8 +23,7 @@ import importlib.util
 from os.path import join, isfile
 from pathlib import Path
 from penv_setup import setup_python_environment
-from littlefs import LittleFS
-from fatfs import Partition, RamDisk, create_extended_partition
+
 from platformio.project.helpers import get_project_dir
 
 from SCons.Script import (
@@ -40,8 +39,17 @@ filesystem = board.get("build.filesystem", "littlefs")
 platformio_dir = config.get("platformio", "core_dir")
 platform_dir = Path(platform.get_dir())
 
-# Setup Python virtual environment and get executable paths
+# Configure Python environment through centralized platform management
+# Must happen before importing penv-installed packages (fatfs, littlefs, etc.)
 PYTHON_EXE, esptool_binary_path = setup_python_environment(env, platform, platformio_dir)
+
+from littlefs import LittleFS
+from fatfs import Partition, RamDisk, create_extended_partition
+from fatfs import create_esp32_wl_image
+from fatfs import calculate_esp32_wl_overhead
+from fatfs import is_esp32_wl_image, extract_fat_from_esp32_wl
+from fatfs.partition_extended import PartitionExtended
+from fatfs.wrapper import pyf_mkfs, PY_FR_OK as FR_OK
 
 # Load SPIFFS generator from local module
 spiffsgen_path = platform_dir / "builder" / "spiffsgen.py"
