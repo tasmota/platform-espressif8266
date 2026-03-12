@@ -12,11 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Python Version Check
+import sys
+from platformio.compat import IS_WINDOWS
+
+pyver = sys.version_info
+if IS_WINDOWS:
+    allowed = (3, 10) <= pyver < (3, 14)
+    supported = "3.10, 3.11, 3.12, 3.13"
+else:
+    allowed = (3, 10) <= pyver < (3, 15)
+    supported = "3.10, 3.11, 3.12, 3.13, 3.14"
+if not allowed:
+    print(f"ERROR: Python version must be {supported}.", file=sys.stderr)
+    print(f"Current Python version: {pyver.major}.{pyver.minor}.{pyver.micro}", file=sys.stderr)
+    print(f"Supported versions: {supported}", file=sys.stderr)
+    raise SystemExit(1)
+
 # LZMA support check
 try:
     import lzma as _lzma
 except ImportError:
-    import sys
     print("ERROR: Python's lzma module is unavailable or broken in this interpreter.", file=sys.stderr)
     print("LZMA (liblzma) support is required for tool/toolchain installation.", file=sys.stderr)
     print("Please install Python built with LZMA support.", file=sys.stderr)
@@ -30,15 +46,12 @@ import importlib.util
 import json
 import logging
 import os
-import requests
 import shutil
-import socket
+import struct
 import subprocess
-import sys
 from pathlib import Path
 from typing import Optional, Dict, List, Any, Union
 
-from platformio.compat import IS_WINDOWS
 from platformio.public import PlatformBase, to_unix_path
 from platformio.proc import get_pythonexe_path
 from platformio.project.config import ProjectConfig
@@ -53,6 +66,8 @@ spec.loader.exec_module(penv_setup_module)
 
 setup_penv_minimal = penv_setup_module.setup_penv_minimal
 get_executable_path = penv_setup_module.get_executable_path
+has_internet_connection = penv_setup_module.has_internet_connection
+
 
 # Constants
 tl_install_name = "tool-esp_install"
