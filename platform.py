@@ -68,7 +68,6 @@ setup_penv_minimal = penv_setup_module.setup_penv_minimal
 get_executable_path = penv_setup_module.get_executable_path
 has_internet_connection = penv_setup_module.has_internet_connection
 
-
 # Constants
 tl_install_name = "tool-esp_install"
 toolchain = "toolchain-xtensa"
