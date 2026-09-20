@@ -14,7 +14,6 @@
 
 import json
 import os
-import re
 import semantic_version
 import shutil
 import site
@@ -38,12 +37,6 @@ if sys.version_info < (3, 10):
 
 github_actions = bool(os.getenv("GITHUB_ACTIONS"))
 
-PLATFORMIO_URL_VERSION_RE = re.compile(
-    r'/v?(\d+\.\d+\.\d+(?:[.-](?:alpha|beta|rc|dev|post|pre)\d*)?(?:\.\d+)?)(?:\.(?:zip|tar\.gz|tar\.bz2))?$',
-    re.IGNORECASE,
-)
-
-# Python dependencies required for platform builds
 python_deps = {
     "pioarduino": "==6.1.19",
     "littlefs-python": ">=0.16.0",
@@ -340,17 +333,6 @@ def get_packages_to_install(deps, installed_packages):
         name = package.lower()
         if name not in installed_packages:
             yield package
-        elif name == "platformio":
-            # Enforce the version from the direct URL if it looks like one.
-            # If version can't be parsed, fall back to accepting any installed version.
-            m = PLATFORMIO_URL_VERSION_RE.search(spec)
-            if m:
-                expected_ver = pepver_to_semver(m.group(1))
-                if installed_packages.get(name) != expected_ver:
-                    # Reinstall to align with the pinned URL version
-                    yield package
-            else:
-                continue
         else:
             version_spec = semantic_version.SimpleSpec(spec)
             if not version_spec.match(installed_packages[name]):
