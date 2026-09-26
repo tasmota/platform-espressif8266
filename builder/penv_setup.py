@@ -38,7 +38,7 @@ if sys.version_info < (3, 10):
 github_actions = bool(os.getenv("GITHUB_ACTIONS"))
 
 python_deps = {
-    "pioarduino": "==6.1.19",
+    "pioarduino": "==6.2.0",
     "littlefs-python": ">=0.16.0",
     "fatfs-ng": ">=0.1.14",
     "pyyaml": ">=6.0.2",
