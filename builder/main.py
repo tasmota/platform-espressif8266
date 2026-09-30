@@ -458,14 +458,14 @@ env.Replace(
     __get_flash_size=_get_flash_size,
     __get_board_f_flash=_get_board_f_flash,
 
-    AR="xtensa-lx106-elf-gcc-ar",
-    AS="xtensa-lx106-elf-as",
-    CC="xtensa-lx106-elf-gcc",
-    CXX="xtensa-lx106-elf-g++",
-    GDB="xtensa-lx106-elf-gdb",
-    OBJCOPY="xtensa-lx106-elf-objcopy",
-    RANLIB="xtensa-lx106-elf-gcc-ranlib",
-    SIZETOOL="xtensa-lx106-elf-size",
+    AR="xtensa-esp-elf-gcc-ar",
+    AS="xtensa-esp-elf-as",
+    CC="xtensa-esp-elf-gcc",
+    CXX="xtensa-esp-elf-g++",
+    GDB="xtensa-esp-elf-gdb",
+    OBJCOPY="xtensa-esp-elf-objcopy",
+    RANLIB="xtensa-esp-elf-gcc-ranlib",
+    SIZETOOL="xtensa-esp-elf-size",
 
     ARFLAGS=["rc"],
 
