@@ -11,13 +11,13 @@
     "esp8266"
   ],
   "engines": {
-    "platformio": ">=6.1.19"
+    "platformio": ">=6.2.0"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/tasmota/platform-espressif8266.git"
   },
-  "version": "2026.09.00",
+  "version": "2026.10.00",
   "frameworks": {
     "arduino": {
       "package": "framework-arduinoespressif8266",
@@ -29,8 +29,8 @@
       "type": "toolchain",
       "optional": true,
       "owner": "pioarduino",
-      "package-version": "2.40802.200502",
-      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/xtensa-4.8.2.zip"
+      "package-version": "16.2.0+20260914",
+      "version": "https://github.com/tasmota/platform-espressif8266/releases/download/v0.0.1/xtensa-esp-elf-16.2.0_20260914.zip"
     },
     "framework-arduinoespressif8266": {
       "type": "framework",
