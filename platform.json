@@ -36,7 +36,7 @@
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/tasmota/Arduino/releases/download/2.9.0/Arduino-2.9.0.zip"
+      "version": "https://github.com/tasmota/Arduino/archive/test.zip"
     },
     "tool-esptoolpy": {
       "type": "uploader",
