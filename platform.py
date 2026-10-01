@@ -70,7 +70,7 @@ has_internet_connection = penv_setup_module.has_internet_connection
 
 # Constants
 tl_install_name = "tool-esp_install"
-toolchain = "toolchain-xtensa"
+toolchain = "toolchain-xtensa-esp-elf"
 
 COMMON_PACKAGES = [
     "tool-esptoolpy",
