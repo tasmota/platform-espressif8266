@@ -25,12 +25,12 @@
     }
   },
   "packages": {
-    "toolchain-xtensa-esp-elf": {
+    "toolchain-xtensa-esp8266": {
       "type": "toolchain",
       "optional": true,
       "owner": "pioarduino",
       "package-version": "16.2.0+20260914",
-      "version": "https://github.com/tasmota/platform-espressif8266/releases/download/v0.0.1/xtensa-esp-elf-16.2.0_20260914.zip"
+      "version": "https://github.com/tasmota/platform-espressif8266/releases/download/v0.0.1/xtensa-esp8266-16.2.0_20260914.zip"
     },
     "framework-arduinoespressif8266": {
       "type": "framework",
