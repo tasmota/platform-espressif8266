@@ -36,7 +36,7 @@
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/tasmota/Arduino/archive/gcc16.zip"
+      "version": "https://github.com/tasmota/Arduino/archive/gcc_same.zip"
     },
     "tool-esptoolpy": {
       "type": "uploader",
