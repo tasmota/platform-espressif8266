@@ -71,7 +71,7 @@ has_internet_connection = penv_setup_module.has_internet_connection
 # Constants
 tl_install_name = "tool-esp_install"
 toolchain = "toolchain-xtensa-esp-elf"
-tool-elf-gdb = "tool-xtensa-esp-elf-gdb"
+tool_elf_gdb = "tool-xtensa-esp-elf-gdb"
 
 COMMON_PACKAGES = [
     "tool-esptoolpy",
@@ -563,7 +563,7 @@ class Espressif8266Platform(PlatformBase):
     def _configure_toolchain(self) -> None:
         """Install esp8266 xtensa toolchain and gdb."""
         self.install_tool(toolchain)
-        self.install_tool(tool-elf-gdb)
+        self.install_tool(tool_elf_gdb)
 
     def _install_common_packages(self) -> None:
         """Install common packages required for all builds."""
