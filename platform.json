@@ -29,7 +29,7 @@
       "type": "toolchain",
       "optional": true,
       "owner": "pioarduino",
-      "package-version": "10.3.0+20261008",
+      "package-version": "10.3.0+261008",
       "version": "https://github.com/tasmota/platform-espressif8266/releases/download/v0.0.1/xtensa-esp8266-10.3.0_20261008.zip"
     },
     "framework-arduinoespressif8266": {
