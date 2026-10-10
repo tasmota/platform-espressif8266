@@ -25,7 +25,7 @@
     }
   },
   "packages": {
-    "toolchain-xtensa-esp-elf": {
+    "toolchain-xtensa": {
       "type": "toolchain",
       "optional": true,
       "owner": "pioarduino",
