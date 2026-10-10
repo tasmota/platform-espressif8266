@@ -29,8 +29,8 @@
       "type": "toolchain",
       "optional": true,
       "owner": "pioarduino",
-      "package-version": "16.1.0+20260609",
-      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/xtensa-esp-elf-16.1.0_20260609.zip"
+      "package-version": "10.3.0+20261008",
+      "version": "https://github.com/tasmota/platform-espressif8266/releases/download/v0.0.1/xtensa-esp8266-10.3.0_20261008.zip"
     },
     "tool-xtensa-esp-elf-gdb": {
       "type": "debugger",
