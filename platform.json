@@ -32,25 +32,18 @@
       "package-version": "10.3.0+20261008",
       "version": "https://github.com/tasmota/platform-espressif8266/releases/download/v0.0.1/xtensa-esp8266-10.3.0_20261008.zip"
     },
-    "tool-xtensa-esp-elf-gdb": {
-      "type": "debugger",
-      "optional": true,
-      "owner": "pioarduino",
-      "package-version": "17.1.0+20260402",
-      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/xtensa-esp-gdb-17.1_20260402.zip"
-    },
     "framework-arduinoespressif8266": {
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/tasmota/Arduino/archive/gcc_same.zip"
+      "version": "https://github.com/tasmota/Arduino/archive/gcc10.zip"
     },
     "tool-esptoolpy": {
       "type": "uploader",
       "optional": true,
       "owner": "pioarduino",
-      "package-version": "5.4.0",
-      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/esptoolpy-v5.4.0.zip"
+      "package-version": "5.5.0",
+      "version": "https://github.com/pioarduino/registry/releases/download/0.0.1/esptoolpy-v5.5.0.zip"
     },
     "tool-esp_install": {
       "type": "tool",
