@@ -20,11 +20,14 @@ import site
 import socket
 import subprocess
 import sys
+import sysconfig
 from pathlib import Path
 from urllib.parse import urlparse
 
 from platformio.package.version import pepver_to_semver
 from platformio.compat import IS_WINDOWS
+
+WINDOWS_ARM64 = IS_WINDOWS and sysconfig.get_platform().lower() == "win-arm64"
 
 # Check Python version requirement
 if sys.version_info < (3, 10):
@@ -37,8 +40,9 @@ if sys.version_info < (3, 10):
 
 github_actions = bool(os.getenv("GITHUB_ACTIONS"))
 
+# Python dependencies required for platform builds
 python_deps = {
-    "pioarduino": "==6.2.0",
+    "pioarduino": ">=6.2.0",
     "littlefs-python": ">=0.16.0",
     "fatfs-ng": ">=0.1.14",
     "pyyaml": ">=6.0.2",
@@ -46,7 +50,8 @@ python_deps = {
     "zopfli": ">=0.2.2",
     "intelhex": ">=2.3.0",
     "rich": ">=14.0.0",
-    "cryptography": ">=45.0.3",
+    # update Windows ARM64 cryptography when there is a wheel again in actual version
+    "cryptography": ">=46.0.7,<47.0.0" if not WINDOWS_ARM64 else "==46.0.3",
     "certifi": ">=2025.8.3",
     "ecdsa": ">=0.19.1",
     "bitstring": ">=4.3.1",
@@ -117,8 +122,8 @@ def _get_penv_python_version(penv_dir):
     """
     Detect the Python version used to create an existing penv.
 
-    Reads the ``version`` key from ``pyvenv.cfg`` which is always
-    written by both ``python -m venv`` and ``uv venv``.  This avoids
+    Reads the ``version`` or ``version_info`` key from ``pyvenv.cfg``
+    which is written by ``python -m venv`` and ``uv venv``.  This avoids
     spawning a subprocess (which can fail when the penv Python is
     corrupted) and works identically on all platforms.
 
@@ -138,25 +143,12 @@ def _get_penv_python_version(penv_dir):
         try:
             for line in cfg_file.read_text(encoding="utf-8").splitlines():
                 key, _, value = line.partition("=")
-                if key.strip().lower() == "version":
+                if key.strip().lower() in ("version", "version_info"):
                     parts = value.strip().split(".")
                     if len(parts) >= 2:
                         return (int(parts[0]), int(parts[1]))
         except Exception:
             pass
-
-    # Fallback (POSIX only): inspect lib/pythonX.Y/ directories
-    if not IS_WINDOWS:
-        lib_dir = penv_path / "lib"
-        if lib_dir.is_dir():
-            for entry in sorted(lib_dir.iterdir(), reverse=True):
-                if entry.is_dir() and entry.name.startswith("python") and (entry / "site-packages").is_dir():
-                    ver_str = entry.name[len("python"):]
-                    try:
-                        major, minor = ver_str.split(".")
-                        return (int(major), int(minor))
-                    except (ValueError, TypeError):
-                        continue
 
     return None
 
@@ -166,11 +158,12 @@ def _penv_version_matches(penv_dir):
     Check whether the existing penv was created with the same Python
     major.minor version as the currently running interpreter.
 
-    Returns True if versions match or if the penv does not exist yet.
+    Returns True if versions match, False otherwise (including when
+    the penv does not exist or its version cannot be determined).
     """
     penv_ver = _get_penv_python_version(penv_dir)
     if penv_ver is None:
-        return True  # no penv yet — nothing to mismatch
+        return False
     return penv_ver == (sys.version_info.major, sys.version_info.minor)
 
 
@@ -218,13 +211,14 @@ def setup_pipenv_in_package(env, penv_dir):
     Returns:
         str or None: Path to uv executable if uv was used, None if python -m venv was used
     """
-    # Recreate penv when Python version changed (e.g. Homebrew upgraded 3.13→3.14)
+    # Recreate penv when Python version changed or penv is invalid
     penv_python_path = get_executable_path(penv_dir, "python")
     if os.path.isfile(penv_python_path) and not _penv_version_matches(penv_dir):
         penv_ver = _get_penv_python_version(penv_dir)
         current_ver = (sys.version_info.major, sys.version_info.minor)
+        penv_ver_str = f"{penv_ver[0]}.{penv_ver[1]}" if penv_ver else "invalid"
         print(
-            f"Python version mismatch: penv has {penv_ver[0]}.{penv_ver[1]}, "
+            f"Python version mismatch: penv has {penv_ver_str}, "
             f"current interpreter is {current_ver[0]}.{current_ver[1]}. "
             f"Recreating penv..."
         )
@@ -321,11 +315,12 @@ def get_packages_to_install(deps, installed_packages):
     """
     Generator for Python packages that need to be installed.
     Compares package names case-insensitively.
-    
+    Handles both semantic version specs and direct URLs (git+, http, etc.).
+
     Args:
         deps (dict): Dictionary of package names and version specifications
         installed_packages (dict): Dictionary of currently installed packages (keys should be lowercase)
-        
+
     Yields:
         str: Package name that needs to be installed
     """
@@ -333,21 +328,27 @@ def get_packages_to_install(deps, installed_packages):
         name = package.lower()
         if name not in installed_packages:
             yield package
+        elif spec.startswith(('http://', 'https://', 'git+', 'file://')):
+            # URL/git/file specs cannot be parsed by semantic_version.SimpleSpec.
+            # Treat the pinned URL as already satisfied if present in the env;
+            # use `uv pip install --upgrade` separately to refresh on demand.
+            continue
         else:
             version_spec = semantic_version.SimpleSpec(spec)
             if not version_spec.match(installed_packages[name]):
                 yield package
 
 
-def install_python_deps(python_exe, external_uv_executable, uv_cache_dir=None):
+def install_python_deps(python_exe, external_uv_executable, uv_cache_dir=None, additional_deps=None):
     """
     Ensure uv package manager is available in penv and install required Python dependencies.
-    
+
     Args:
         python_exe: Path to Python executable in the penv
         external_uv_executable: Path to external uv executable used to create the penv (can be None)
         uv_cache_dir: Optional path to uv cache directory
-    
+        additional_deps: Optional dictionary of additional package names and version specs to install
+
     Returns:
         bool: True if successful, False otherwise
     """
@@ -463,23 +464,29 @@ def install_python_deps(python_exe, external_uv_executable, uv_cache_dir=None):
         return result
 
     installed_packages = _get_installed_uv_packages()
-    packages_to_install = list(get_packages_to_install(python_deps, installed_packages))
-    
+
+    # Combine core and additional dependencies
+    all_deps = dict(python_deps)
+    if additional_deps:
+        all_deps.update(additional_deps)
+
+    packages_to_install = list(get_packages_to_install(all_deps, installed_packages))
+
     if packages_to_install:
         packages_list = []
         for p in packages_to_install:
-            spec = python_deps[p]
+            spec = all_deps[p]
             if spec.startswith(('http://', 'https://', 'git+', 'file://')):
                 packages_list.append(spec)
             else:
                 packages_list.append(f"{p}{spec}")
-        
+
         cmd = [
             penv_uv_executable, "pip", "install",
             f"--python={python_exe}",
             "--quiet", "--upgrade"
         ] + packages_list
-        
+
         try:
             subprocess.check_call(
                 cmd,
@@ -488,7 +495,7 @@ def install_python_deps(python_exe, external_uv_executable, uv_cache_dir=None):
                 timeout=300,
                 env=uv_env
             )
-                
+
         except subprocess.CalledProcessError as e:
             print(f"Error: Failed to install Python dependencies (exit code: {e.returncode})")
             return False
@@ -501,7 +508,7 @@ def install_python_deps(python_exe, external_uv_executable, uv_cache_dir=None):
         except Exception as e:
             print(f"Error installing Python dependencies: {e}")
             return False
-    
+
     return True
 
 
@@ -561,9 +568,11 @@ def install_esptool(env, platform, python_exe, uv_executable, uv_cache_dir=None)
 
     try:
         subprocess.check_call([
-            uv_executable, "pip", "install", "--quiet", "--force-reinstall",
+            uv_executable, "pip", "install", "--quiet",
+            "--reinstall-package", "esptool",
             f"--python={python_exe}",
-            "-e", esptool_repo_path
+            "-e", esptool_repo_path,
+            f"cryptography{python_deps['cryptography']}",
         ], timeout=60, env=uv_env)
 
     except subprocess.CalledProcessError as e:
@@ -670,13 +679,14 @@ def _setup_pipenv_minimal(penv_dir):
     Returns:
         str or None: Path to uv executable if uv was used, None if python -m venv was used
     """
-    # Recreate penv when Python version changed (e.g. Homebrew upgraded 3.13→3.14)
+    # Recreate penv when Python version changed or penv is invalid
     penv_python_path = get_executable_path(penv_dir, "python")
     if os.path.isfile(penv_python_path) and not _penv_version_matches(penv_dir):
         penv_ver = _get_penv_python_version(penv_dir)
         current_ver = (sys.version_info.major, sys.version_info.minor)
+        penv_ver_str = f"{penv_ver[0]}.{penv_ver[1]}" if penv_ver else "invalid"
         print(
-            f"Python version mismatch: penv has {penv_ver[0]}.{penv_ver[1]}, "
+            f"Python version mismatch: penv has {penv_ver_str}, "
             f"current interpreter is {current_ver[0]}.{current_ver[1]}. "
             f"Recreating penv..."
         )
@@ -787,9 +797,11 @@ def _install_esptool_from_tl_install(platform, python_exe, uv_executable, uv_cac
 
     try:
         subprocess.check_call([
-            uv_executable, "pip", "install", "--quiet", "--force-reinstall",
+            uv_executable, "pip", "install", "--quiet",
+            "--reinstall-package", "esptool",
             f"--python={python_exe}",
-            "-e", esptool_repo_path
+            "-e", esptool_repo_path,
+            f"cryptography{python_deps['cryptography']}",
         ], timeout=60, env=uv_env)
         print(f"Installed esptool from tl-install path: {esptool_repo_path}")
 
