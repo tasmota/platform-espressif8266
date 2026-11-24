@@ -35,8 +35,8 @@
     "framework-arduinoespressif8266": {
       "type": "framework",
       "optional": true,
-      "owner": "s-hadinger",
-      "version": "https://github.com/s-hadinger/Arduino/archive/webwserver_check_write_result.zip"
+      "owner": "tasmota",
+      "version": "https://github.com/tasmota/Arduino/archive/pr_test.zip"
     },
     "tool-esptoolpy": {
       "type": "uploader",
