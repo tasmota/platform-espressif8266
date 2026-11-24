@@ -36,7 +36,7 @@
       "type": "framework",
       "optional": true,
       "owner": "tasmota",
-      "version": "https://github.com/tasmota/Arduino/archive/gcc153.zip"
+      "version": "https://github.com/s-hadinger/Arduino/archive/webwserver_check_write_result.zip"
     },
     "tool-esptoolpy": {
       "type": "uploader",
